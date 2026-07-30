@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>棋谱库</title>
+<meta name="theme-color" content="#EFEAE0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  /* ========== 页头 ========== */
+  header { margin-bottom:26px; }
+  .head-top { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+  .head-top .overline { color:var(--text-sec); }
+  .title-display { margin-bottom:0; }
+
+  /* ========== 顶层 tab：棋局 / 局面 ========== */
+  .tabs {
+    display:flex; gap:26px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:26px;
+  }
+  .tab {
+    background:none; border:none; cursor:pointer;
+    padding:0 0 12px; margin-bottom:-1px;
+    font-family:var(--serif); font-weight:900; font-size:17px;
+    color:var(--text-sec);
+    border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  .tab.on { color:var(--ink, #1A1A1A); border-bottom-color:var(--orange); }
+  .view { display:none; }
+  .view.on { display:block; }
+
+  /* ========== 棋盘 ========== */
+  .cb { position:relative; width:100%; max-width:520px; margin:0 auto; }
+  .cb-grid {
+    display:grid;
+    grid-template-columns:repeat(8, 1fr);
+    grid-template-rows:repeat(8, 1fr);
+    aspect-ratio:1 / 1;
+    border-radius:var(--radius);
+    overflow:hidden;
+    /* 无阴影无渐变，靠一条描边收住 */
+    border:1px solid var(--line);
+  }
+  .cb-sq { position:relative; }
+  /* 棋盘配色：跟着工作台的暖色系走，不用 lichess 的绿 */
+  .cb-sq.light { background:#EDE4D3; }
+  .cb-sq.dark  { background:#B9A283; }
+
+  .cb-piece {
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    user-select:none; -webkit-user-drag:none;
+    pointer-events:none;   /* 点击落到格子上，不被图片吃掉 */
+  }
+
+  /* 选中 / 上一步 / 被将 */
+  .cb-sq.sel  { background:#D8C08A; }
+  .cb-sq.dark.sel { background:#B99F62; }
+  .cb-sq.last { background:#E4D4A8; }
+  .cb-sq.dark.last { background:#BCA466; }
+  .cb-sq.chk::before {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle, rgba(205,60,40,.55) 0%, rgba(205,60,40,0) 72%);
+  }
+
+  /* 合法落点：空格小圆点，可吃子画圈 */
+  .cb-dot {
+    position:absolute; top:50%; left:50%;
+    width:28%; height:28%;
+    transform:translate(-50%, -50%);
+    border-radius:50%;
+    background:rgba(26,26,26,.22);
+    pointer-events:none;
+  }
+  .cb-cap {
+    position:absolute; inset:6%;
+    border-radius:50%;
+    border:3px solid rgba(26,26,26,.22);
+    pointer-events:none;
+  }
+
+  .cb-coord {
+    position:absolute;
+    font-family:var(--mono); font-size:10px;
+    color:rgba(26,26,26,.45);
+    pointer-events:none; line-height:1;
+  }
+  .cb-rank { top:3px; left:3px; }
+  .cb-file { bottom:3px; right:4px; }
+
+  /* 升变浮层 */
+  .cb-promo {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%, -50%);
+    display:flex; gap:6px;
+    background:var(--cream-deep);
+    border:1.5px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px; z-index:5;
+  }
+  .cb-promo-btn {
+    width:52px; height:52px;
+    background:#EDE4D3; border:1px solid var(--line);
+    border-radius:8px; cursor:pointer; padding:3px;
+  }
+  .cb-promo-btn:hover { border-color:var(--orange); }
+  .cb-promo-btn img { width:100%; height:100%; }
+
+  /* ========== 棋盘下方操作条 ========== */
+  .board-wrap { max-width:520px; margin:0 auto; }
+  .nav {
+    display:flex; gap:8px; justify-content:center;
+    margin-top:14px;
+  }
+  .nav button {
+    flex:1; max-width:88px;
+    font-family:var(--mono); font-size:15px;
+    background:var(--cream-deep);
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:11px 0; cursor:pointer; color:var(--text-sec);
+    transition:border-color .15s, color .15s;
+  }
+  .nav button:hover { border-color:var(--orange); color:var(--orange); }
+  .nav button:disabled { opacity:.4; cursor:default; }
+  .nav button:disabled:hover { border-color:var(--line); color:var(--text-sec); }
+
+  .status {
+    margin-top:12px; text-align:center;
+    font-family:var(--mono); font-size:11px; letter-spacing:1px;
+    color:var(--text-sec); min-height:16px;
+  }
+  .status .warn { color:var(--orange); }
+
+  /* ========== 着法列表（树形，变招缩进） ========== */
+  .moves {
+    margin-top:20px; padding:16px 18px;
+    background:var(--cream-deep);
+    border-radius:var(--radius-lg);
+    font-size:15px; line-height:2;
+    max-height:300px; overflow-y:auto;
+  }
+  .moves:empty::after {
+    content:'还没有着法，在棋盘上走一步试试';
+    color:var(--text-sec); font-size:14px;
+  }
+  /* 间距靠 JS 插入的真实空格文本节点，这里不用 margin，
+     否则换行处会叠加出奇怪的缩进 */
+  .mv {
+    display:inline-block;
+    padding:1px 5px;
+    border-radius:5px; cursor:pointer;
+    font-family:var(--mono); font-size:14px;
+  }
+  .mv:hover { background:rgba(205,111,71,.14); }
+  .mv.on { background:var(--orange); color:#fff; }
+  .mv-num {
+    font-family:var(--mono); font-size:13px;
+    color:var(--text-sec);
+  }
+  .mv-nag { color:var(--orange); font-weight:700; }
+  .mv-comment {
+    font-family:var(--serif); font-size:13px;
+    color:var(--text-sec); font-style:italic;
+    margin:0 3px;
+  }
+  /* 变招整段缩进 + 左侧竖线，层级一眼能看出来 */
+  .varline {
+    margin:2px 0 2px 14px; padding-left:12px;
+    border-left:2px solid var(--line);
+    font-size:14px;
+  }
+  .varline .mv { font-size:13px; }
+
+  /* ========== 表单 ========== */
+  .field-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .field-row > * { flex:1; min-width:130px; }
+  label.lb {
+    display:block;
+    font-family:var(--mono); font-size:10px; letter-spacing:1.2px;
+    color:var(--text-sec); margin-bottom:5px; text-transform:uppercase;
+  }
+  textarea.field { min-height:130px; resize:vertical; font-family:var(--mono); font-size:13px; line-height:1.6; }
+  select.field { appearance:none; background-image:none; }
+
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+  .btn-ghost {
+    font-family:var(--serif); font-weight:900; font-size:14px;
+    color:var(--text); background:transparent;
+    border:1.5px solid var(--line); border-radius:var(--radius);
+    padding:10px 18px; cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .btn-ghost:hover { border-color:var(--orange); color:var(--orange); }
+  .btn-ghost.danger:hover { border-color:#B4402E; color:#B4402E; }
+
+  /* ========== 区块 ========== */
+  .sec { margin-top:38px; }
+  .sec-head {
+    display:flex; align-items:baseline; gap:10px;
+    margin-bottom:14px;
+    padding-bottom:8px; border-bottom:1px solid var(--line-soft);
+  }
+  .sec-head .overline { color:var(--text-sec); }
+
+  .hint {
+    font-family:var(--mono); font-size:11px; letter-spacing:.6px;
+    color:var(--text-sec); margin:10px 0 0; line-height:1.7;
+  }
+
+  /* ========== 列表 ========== */
+  .glist { list-style:none; margin-top:4px; }
+  .glist li {
+    padding:15px 2px;
+    border-bottom:1px solid var(--line-soft);
+    display:flex; align-items:flex-start; gap:14px;
+  }
+  .glist li:first-child { border-top:1px solid var(--line-soft); }
+  .gmain { flex:1; min-width:0; cursor:pointer; }
+  .gtitle { font-size:16px; font-weight:700; line-height:1.5; word-break:break-word; }
+  .gmeta {
+    margin-top:4px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.5px;
+    color:var(--text-sec);
+  }
+  .gbadge {
+    display:inline-block; margin-left:6px; padding:1px 6px;
+    border-radius:4px; background:rgba(205,111,71,.16);
+    color:var(--orange); font-size:10px; letter-spacing:.5px;
+  }
+  .empty {
+    background:var(--cream-deep); border-radius:var(--radius-lg);
+    padding:48px 26px; text-align:center;
+    color:var(--text-sec); font-size:15px; line-height:1.8;
+  }
+
+  @media (max-width:480px) {
+    .wrap { padding-left:20px; padding-right:20px; }
+    .title-display { font-size:32px; }
+    .moves { padding:13px 14px; }
+    .tabs { gap:20px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="head-top">
+      <a class="back" href="../../" aria-label="返回工作台">←</a>
+      <div class="overline">Chess</div>
+    </div>
+    <h1 class="title-display">棋谱<span class="orange">库</span></h1>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on" type="button" data-view="game">棋局</button>
+    <button class="tab" type="button" data-view="pos">局面</button>
+  </div>
+
+  <!-- ================= 棋局 ================= -->
+  <section class="view on" id="v-game">
+
+    <div class="board-wrap">
+      <div id="board"></div>
+      <div class="nav">
+        <button type="button" id="nav-start" title="回到开局">|◀</button>
+        <button type="button" id="nav-prev" title="上一步">◀</button>
+        <button type="button" id="nav-next" title="下一步">▶</button>
+        <button type="button" id="nav-end" title="到最后">▶|</button>
+        <button type="button" id="nav-flip" title="翻转棋盘">⇅</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="moves" id="moves"></div>
+
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn-ghost" type="button" id="act-save">保存这局</button>
+      <button class="btn-ghost" type="button" id="act-new">清空重录</button>
+      <button class="btn-ghost danger" type="button" id="act-undo">删除当前着法</button>
+      <button class="btn-ghost" type="button" id="act-promote">升为主变</button>
+    </div>
+    <p class="hint" id="tree-hint"></p>
+
+    <!-- 粘贴 PGN -->
+    <section class="sec">
+      <div class="sec-head">
+        <span class="card-mini-icon" style="font-size:16px">→</span>
+        <span class="overline">Import PGN</span>
+      </div>
+      <textarea class="field" id="pgn-in" placeholder='把 PGN 粘进来，变招和注释都会保留
+
+[White "..."]
+[Black "..."]
+
+1. e4 e5 2. Nf3 (2. Bc4 Bc5) Nc6 ...'></textarea>
+      <div class="btn-row">
+        <button class="btn-ghost" type="button" id="act-load">打开棋盘</button>
+        <button class="btn-ghost" type="button" id="act-import-save">导入并保存</button>
+      </div>
+      <p class="hint">一次粘多局也可以，会拆开分别保存。</p>
+    </section>
+
+    <!-- 对局信息 -->
+    <section class="sec">
+      <div class="sec-head">
+        <span class="card-mini-icon" style="font-size:16px">§</span>
+        <span class="overline">Game Info</span>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="lb" for="f-white">白方</label>
+          <input class="field" id="f-white" autocomplete="off" placeholder="执白的人">
+        </div>
+        <div>
+          <label class="lb" for="f-black">黑方</label>
+          <input class="field" id="f-black" autocomplete="off" placeholder="执黑的人">
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="lb" for="f-date">日期</label>
+          <input class="field" id="f-date" type="date">
+        </div>
+        <div>
+          <label class="lb" for="f-result">结果</label>
+          <select class="field" id="f-result">
+            <option value="*">未结束</option>
+            <option value="1-0">白胜</option>
+            <option value="0-1">黑胜</option>
+            <option value="1/2-1/2">和棋</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="lb" for="f-event">赛事 / 场合</label>
+          <input class="field" id="f-event" autocomplete="off" placeholder="随手局、线上快棋…">
+        </div>
+        <div>
+          <label class="lb" for="f-tag">标签</label>
+          <input class="field" id="f-tag" autocomplete="off" placeholder="逗号分隔">
+        </div>
+      </div>
+      <div>
+        <label class="lb" for="f-note">备注</label>
+        <textarea class="field" id="f-note" style="min-height:70px" placeholder="这局的想法、失误、收获"></textarea>
+      </div>
+    </section>
+
+    <!-- 已存棋局 -->
+    <section class="sec">
+      <div class="sec-head">
+        <span class="card-mini-icon" style="font-size:16px">▣</span>
+        <span class="overline">Saved</span>
+        <span class="gmeta" id="game-count" style="margin-left:auto"></span>
+      </div>
+      <ul class="glist" id="game-list"></ul>
+      <div class="empty" id="game-empty">还没有存棋局<br>粘一份 PGN，或直接在棋盘上走子</div>
+    </section>
+
+  </section>
+
+  <!-- ================= 局面 ================= -->
+  <section class="view" id="v-pos">
+    <div class="empty">局面收藏在下一步做</div>
+  </section>
+
+  <!-- 备份 -->
+  <section class="sec" style="border-top:1px solid var(--line-soft); padding-top:22px">
+    <div class="sec-head" style="border:none; padding:0">
+      <span class="card-mini-icon" style="font-size:17px">⇄</span>
+      <span class="overline sec">Backup</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn-ghost" type="button" id="act-export">导出备份</button>
+      <button class="btn-ghost" type="button" id="act-import">导入备份</button>
+      <button class="btn-ghost" type="button" id="act-export-pgn">导出 PGN</button>
+    </div>
+    <p class="hint">
+      清除浏览器数据、删掉这个应用、或者换手机，本地数据都会丢。
+      导出 PGN 得到的是标准格式，能导进 lichess 或 ChessBase。
+    </p>
+  </section>
+
+</div>
+
+<script src="../../storage.js"></script>
+<script src="vendor/chess.js"></script>
+<script src="pgn.js"></script>
+<script src="board.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

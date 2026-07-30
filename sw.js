@@ -4,7 +4,7 @@
    这样既不会看到过期页面，断网时也还能用。
    改了文件后如果手机上还是旧的，把下面版本号 +1 再 push。
 */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'workbench-' + VERSION;
 
 const PRECACHE = [
@@ -19,7 +19,25 @@ const PRECACHE = [
   './tools/notes/index.html',
   './tools/shelf/',
   './tools/shelf/index.html',
-  './tools/shelf/app.js'
+  './tools/shelf/app.js',
+  './tools/chess/',
+  './tools/chess/index.html',
+  './tools/chess/app.js',
+  './tools/chess/board.js',
+  './tools/chess/pgn.js',
+  './tools/chess/vendor/chess.js',
+  './tools/chess/pieces/wK.svg',
+  './tools/chess/pieces/wQ.svg',
+  './tools/chess/pieces/wR.svg',
+  './tools/chess/pieces/wB.svg',
+  './tools/chess/pieces/wN.svg',
+  './tools/chess/pieces/wP.svg',
+  './tools/chess/pieces/bK.svg',
+  './tools/chess/pieces/bQ.svg',
+  './tools/chess/pieces/bR.svg',
+  './tools/chess/pieces/bB.svg',
+  './tools/chess/pieces/bN.svg',
+  './tools/chess/pieces/bP.svg'
 ];
 
 self.addEventListener('install', e => {
