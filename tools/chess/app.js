@@ -16,6 +16,10 @@
 
 const store = new Store('chess');
 
+/* 常见时限。格式沿用国际象棋惯例「分钟+每步加秒」，
+   也就是 PGN 里 TimeControl 标签的秒数形式（3+2 → "180+2"）。 */
+const TIME_CONTROLS = ['1+0', '3+0', '3+2', '5+0', '5+3', '10+0', '15+0'];
+
 /* ---------- 数据规整 ---------- */
 
 // 导入的数据可能结构不对，收敛成合法形状，避免页面崩掉
@@ -28,6 +32,7 @@ function normalize(raw) {
     date:     /^\d{4}-\d{2}-\d{2}$/.test(g.date) ? g.date : today(),
     result:   ['*', '1-0', '0-1', '1/2-1/2'].includes(g.result) ? g.result : '*',
     event:    String(g.event || ''),
+    tc:       String(g.tc || ''),          // 时限，如 '3+2'
     tags:     Array.isArray(g.tags) ? g.tags.map(String) : [],
     note:     String(g.note || ''),
     startFen: (g.startFen && PGN.Engine.validFen(g.startFen)) ? g.startFen : PGN.START_FEN,
@@ -37,6 +42,35 @@ function normalize(raw) {
   }));
   const positions = Array.isArray(d.positions) ? d.positions : [];
   return { games, positions };
+}
+
+/* ---------- 时限的两种写法互转 ----------
+   界面上用「3+2」，PGN 标准里 TimeControl 用秒「180+2」。
+   导入时要认得后者，导出时要写成后者。 */
+
+function tcToPgn(tc) {
+  const m = String(tc || '').match(/^(\d+)\s*\+\s*(\d+)$/);
+  if (!m) return '';
+  return (parseInt(m[1], 10) * 60) + '+' + parseInt(m[2], 10);
+}
+
+function tcFromPgn(raw) {
+  const s = String(raw || '').trim();
+  if (!s || s === '-' || s === '?') return '';
+  const m = s.match(/^(\d+)\s*\+\s*(\d+)$/);
+  if (m) {
+    const sec = parseInt(m[1], 10);
+    // 秒数能整除 60 就转成分钟，否则原样留着（比如 30+0 这种秒制）
+    if (sec >= 60 && sec % 60 === 0) return (sec / 60) + '+' + parseInt(m[2], 10);
+    return s;
+  }
+  // 只有一个数字（无加秒）
+  const only = s.match(/^(\d+)$/);
+  if (only) {
+    const sec = parseInt(only[1], 10);
+    if (sec >= 60 && sec % 60 === 0) return (sec / 60) + '+0';
+  }
+  return s;
 }
 
 /* 树可能来自手改的备份文件，逐个节点补齐字段 */
@@ -124,6 +158,7 @@ function syncBoard() {
   renderMoves();
   renderStatus();
   renderNav();
+  renderDock();
 }
 
 function renderStatus() {
@@ -150,6 +185,26 @@ function renderStatus() {
     `<span class="${(st.checkmate || st.check) ? 'warn' : ''}">${s}</span>` +
     ` · ${pos} · 共 ${total} 着` +
     (cur.id ? saveState : `<span class="warn">${saveState}</span>`);
+}
+
+/**
+ * 底部保存条。
+ * 录完棋要滚回上面找保存按钮很烦，所以只要手上有没保存的棋，
+ * 就在屏幕底下常驻一个保存入口。存好了自动收起来。
+ */
+function renderDock() {
+  const dock = $('dock');
+  const show = isDirty();
+
+  dock.classList.toggle('on', show);
+  document.body.classList.toggle('has-dock', show);
+
+  if (show) {
+    const n = PGN.countAll(cur.root);
+    const w = $('f-white').value.trim(), b = $('f-black').value.trim();
+    const who = (w || b) ? `${w || '白方'} — ${b || '黑方'}` : '这一局';
+    $('dock-txt').innerHTML = `${escapeHtml(who)} · <b>${n} 着还没保存</b>`;
+  }
 }
 
 function renderNav() {
@@ -328,6 +383,38 @@ function goEnd() {
    表单 ↔ 当前局
    ============================================================ */
 
+/* 当前选中的时限。常见的走 chips，其他走输入框。 */
+let curTc = '';
+
+function renderTcChips() {
+  const box = $('tc-chips');
+  box.innerHTML = '';
+  const known = TIME_CONTROLS.includes(curTc);
+
+  const mk = (label, val, on) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (on ? ' on' : '');
+    b.textContent = label;
+    b.onclick = () => {
+      curTc = val;
+      if (val) $('tc-custom').value = '';
+      renderTcChips();
+    };
+    return b;
+  };
+
+  box.appendChild(mk('不记', '', !curTc));
+  TIME_CONTROLS.forEach(t => box.appendChild(mk(t, t, curTc === t)));
+
+  // 自定义值也显示成一个选中的 chip，让当前状态一目了然
+  if (curTc && !known) {
+    const b = mk(curTc, curTc, true);
+    b.title = '自己填的';
+    box.appendChild(b);
+  }
+}
+
 function readForm() {
   return {
     white:  $('f-white').value.trim(),
@@ -335,6 +422,7 @@ function readForm() {
     date:   $('f-date').value || today(),
     result: $('f-result').value,
     event:  $('f-event').value.trim(),
+    tc:     curTc,
     tags:   $('f-tag').value.split(/[,，]/).map(s => s.trim()).filter(Boolean),
     note:   $('f-note').value.trim()
   };
@@ -348,6 +436,9 @@ function fillForm(g) {
   $('f-event').value  = g.event || '';
   $('f-tag').value    = (g.tags || []).join(', ');
   $('f-note').value   = g.note || '';
+  curTc = g.tc || '';
+  $('tc-custom').value = (curTc && !TIME_CONTROLS.includes(curTc)) ? curTc : '';
+  renderTcChips();
 }
 
 /* ============================================================
@@ -365,8 +456,11 @@ function saveCurrent() {
     const g = db.games.find(x => x.id === cur.id);
     if (g) {
       Object.assign(g, form, { root: cur.root, startFen: cur.startFen, headers: cur.headers });
-      persist(); renderGames();
+      persist();
+      renderFilters();
+      renderGames();
       renderStatus();          // 状态栏里的「已保存/未保存」要跟着更新
+      renderDock();
       showSavedTip(g, true);
       return;
     }
@@ -378,9 +472,12 @@ function saveCurrent() {
   }, form);
   db.games.unshift(g);
   cur.id = g.id;
-  persist(); renderGames();
+  persist();
+  renderFilters();           // 新局可能带来新的白方/赛事/时限选项
+  renderGames();
   renderStatus();            // 同上，让「未保存」立刻变「已保存」
   renderNav();
+  renderDock();              // 存好了，底部条收起来
   showSavedTip(g, false);
 }
 
@@ -438,6 +535,7 @@ function loadGame(id) {
 function newGame() {
   if (!confirmDiscard('开新的一盘')) return;
   $('saved-tip').classList.remove('on');
+  $('tc-custom').value = '';
   cur.id = null;
   cur.startFen = PGN.START_FEN;
   cur.root = PGN.newRoot();
@@ -492,6 +590,7 @@ function metaFromHeaders(h) {
     date:   date,
     result: ['1-0', '0-1', '1/2-1/2'].includes(h.Result) ? h.Result : '*',
     event:  h.Event && h.Event !== '?' ? h.Event : '',
+    tc:     tcFromPgn(h.TimeControl),
     tags:   [h.ECO, h.Opening].filter(x => x && x !== '?'),
     note:   ''
   };
@@ -554,7 +653,9 @@ function importAndSave() {
 
   if (!okN) { alert('一局都没导入成功，检查 PGN 格式'); return; }
 
-  persist(); renderGames();
+  persist();
+  renderFilters();
+  renderGames();
   $('pgn-in').value = '';
   let msg = `导入 ${okN} 局`;
   if (varTotal > 0) msg += `，含 ${varTotal} 着变招`;
@@ -565,6 +666,117 @@ function importAndSave() {
 /* ============================================================
    已存列表
    ============================================================ */
+
+/* ============================================================
+   筛选
+   ------------------------------------------------------------
+   列表和「导出这些棋局」共用 filteredGames()，
+   所以导出的一定就是屏幕上看到的那些。
+   ============================================================ */
+
+const flt = { q: '', result: '', white: '', black: '', tc: '', event: '', from: '', to: '' };
+
+function filteredGames() {
+  const q = flt.q.trim().toLowerCase();
+
+  return db.games.filter(g => {
+    if (flt.result && g.result !== flt.result) return false;
+    if (flt.white && g.white !== flt.white) return false;
+    if (flt.black && g.black !== flt.black) return false;
+    if (flt.tc && (g.tc || '') !== flt.tc) return false;
+    if (flt.event && g.event !== flt.event) return false;
+    if (flt.from && (g.date || '') < flt.from) return false;
+    if (flt.to && (g.date || '') > flt.to) return false;
+
+    if (q) {
+      const hay = [g.white, g.black, g.event, g.note, (g.tags || []).join(' '), g.tc]
+        .join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.at - a.at);
+}
+
+function anyFilterOn() {
+  return Object.keys(flt).some(k => flt[k]);
+}
+
+/**
+ * 把某个字段用过的值收集出来填进下拉框。
+ *
+ * 选中状态以 flt 为准（不是以 DOM 现值为准）。早先反过来写，
+ * 结果「清空筛选」把 flt 清了、DOM 却把旧值恢复回去，
+ * 于是 flt 里残留条件，筛选和导出都莫名少几局。
+ */
+function fillSelect(id, values, fltKey) {
+  const sel = $(id);
+  sel.innerHTML = '';
+
+  const all = document.createElement('option');
+  all.value = '';
+  all.textContent = '全部';
+  sel.appendChild(all);
+
+  values.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = v;
+    sel.appendChild(o);
+  });
+
+  // flt 里的值如果已经不存在了（比如那局被删了），连 flt 一起清掉，
+  // 否则会留下一个永远筛不出东西的隐形条件
+  const want = flt[fltKey] || '';
+  if (want && !values.includes(want)) flt[fltKey] = '';
+  sel.value = flt[fltKey] || '';
+}
+
+function renderFilters() {
+  const uniq = key => [...new Set(db.games.map(g => g[key]).filter(Boolean))].sort();
+  fillSelect('fl-white', uniq('white'), 'white');
+  fillSelect('fl-black', uniq('black'), 'black');
+  fillSelect('fl-event', uniq('event'), 'event');
+  fillSelect('fl-tc', uniq('tc'), 'tc');
+
+  // 结果用 chips，比下拉快
+  const box = $('fl-result');
+  box.innerHTML = '';
+  const opts = [
+    ['全部', ''], ['白胜', '1-0'], ['黑胜', '0-1'],
+    ['和棋', '1/2-1/2'], ['未结束', '*']
+  ];
+  opts.forEach(([label, val]) => {
+    const n = val ? db.games.filter(g => g.result === val).length : db.games.length;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (flt.result === val ? ' on' : '');
+    b.textContent = n ? `${label} ${n}` : label;
+    b.onclick = () => { flt.result = val; renderFilters(); renderGames(); };
+    box.appendChild(b);
+  });
+
+  $('filters').style.display = db.games.length ? 'block' : 'none';
+}
+
+function readFilters() {
+  flt.q      = $('fl-q').value;
+  flt.white  = $('fl-white').value;
+  flt.black  = $('fl-black').value;
+  flt.tc     = $('fl-tc').value;
+  flt.event  = $('fl-event').value;
+  flt.from   = $('fl-from').value;
+  flt.to     = $('fl-to').value;
+  renderGames();
+}
+
+function clearFilters() {
+  Object.keys(flt).forEach(k => flt[k] = '');
+  $('fl-q').value = '';
+  $('fl-from').value = '';
+  $('fl-to').value = '';
+  renderFilters();
+  renderGames();
+}
 
 /** 取开局前几手当标题，给没填对手名的局用 */
 function openingLabel(g) {
@@ -587,12 +799,29 @@ function openingLabel(g) {
 function renderGames() {
   const ul = $('game-list');
   ul.innerHTML = '';
-  const rows = db.games.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.at - a.at);
+  const rows = filteredGames();
+  const total = db.games.length;
 
-  $('game-empty').style.display = rows.length ? 'none' : 'block';
-  $('game-count').textContent = rows.length ? `${rows.length} 局` : '';
-  // 列表里有东西时才显示「再下一盘」，空列表时这个按钮没意义
+  // 区分「一局都没存」和「筛选没结果」，提示语不一样
+  const emptyEl = $('game-empty');
+  emptyEl.style.display = rows.length ? 'none' : 'block';
+  emptyEl.innerHTML = total
+    ? '没有符合条件的棋局<br>换个条件，或者清空筛选'
+    : '还没有存棋局<br>粘一份 PGN，或直接在棋盘上走子';
+
+  $('game-count').textContent = total
+    ? (rows.length === total ? `${total} 局` : `${rows.length} / ${total} 局`)
+    : '';
+  $('fl-count').textContent = anyFilterOn()
+    ? `筛出 ${rows.length} 局` : '';
   $('list-actions').style.display = rows.length ? 'flex' : 'none';
+
+  // 导出按钮的文字跟着筛选状态变，避免误以为导的是全部
+  const expBtn = $('act-export-filtered');
+  if (expBtn) {
+    expBtn.textContent = anyFilterOn()
+      ? `导出这 ${rows.length} 局` : `导出全部 ${rows.length} 局`;
+  }
 
   for (const g of rows) {
     const li = document.createElement('li');
@@ -615,6 +844,7 @@ function renderGames() {
     const meta = document.createElement('div');
     meta.className = 'gmeta';
     const bits = [g.date, g.result === '*' ? '未结束' : g.result];
+    if (g.tc) bits.push(g.tc);
     const mainN = PGN.countMainline(g.root);
     const varN = PGN.countAll(g.root) - mainN;
     bits.push(`${mainN} 着`);
@@ -648,7 +878,9 @@ function renderGames() {
       if (!confirm(`删除「${label}」？\n\n删了就找不回来了。`)) return;
       db.games = db.games.filter(x => x.id !== g.id);
       if (cur.id === g.id) cur.id = null;
-      persist(); renderGames(); renderStatus();
+      persist();
+      renderFilters();   // 删完可能某个筛选值已经不存在了
+      renderGames(); renderStatus(); renderDock();
     };
 
     acts.append(exp, del);
@@ -670,6 +902,10 @@ function gameToPgn(g) {
     Black:  g.black || '?',
     Result: g.result || '*'
   });
+  // TimeControl 标准写法是秒，3+2 要写成 180+2
+  const tcPgn = tcToPgn(g.tc);
+  if (tcPgn) headers.TimeControl = tcPgn;
+  else delete headers.TimeControl;
   if (g.note) headers.Annotator = g.note.replace(/[\[\]"]/g, '');
   return PGN.build({ headers, startFen: g.startFen, root: g.root });
 }
@@ -697,6 +933,31 @@ function exportAllPgn() {
   downloadText(parts.join('\n\n'), `棋谱全部-${today().replace(/-/g, '')}.pgn`,
                'application/x-chess-pgn');
   flash(`导出 ${db.games.length} 局`);
+}
+
+/**
+ * 导出当前筛选出来的那些局。
+ * 用的是同一个 filteredGames()，所以导出的一定是屏幕上看到的。
+ */
+function exportFilteredPgn() {
+  const rows = filteredGames();
+  if (!rows.length) { alert('当前条件下没有棋局'); return; }
+
+  const parts = rows.map(gameToPgn);
+  // 文件名带上筛选条件，下载多次也分得清
+  const bits = [];
+  if (flt.result) bits.push({ '1-0': '白胜', '0-1': '黑胜', '1/2-1/2': '和棋', '*': '未结束' }[flt.result]);
+  if (flt.white) bits.push(safeName(flt.white));
+  if (flt.black) bits.push(safeName(flt.black));
+  if (flt.tc) bits.push(flt.tc.replace('+', '加'));
+  if (flt.event) bits.push(safeName(flt.event));
+  if (flt.q) bits.push(safeName(flt.q));
+  const tag = bits.length ? '-' + bits.join('-') : '-全部';
+
+  downloadText(parts.join('\n\n'),
+               `棋谱${tag}-${today().replace(/-/g, '')}.pgn`,
+               'application/x-chess-pgn');
+  flash(`导出 ${rows.length} 局`);
 }
 
 /** 只导出某一局 */
@@ -744,12 +1005,40 @@ $('nav-end').onclick   = goEnd;
 $('nav-flip').onclick  = () => board.flip();
 
 $('act-save').onclick    = saveCurrent;
+$('dock-save').onclick   = saveCurrent;
 $('act-new').onclick     = newGame;
 $('act-new2').onclick    = () => {
   newGame();
   // 从列表底部点的，得把视线带回棋盘，否则看不出发生了什么
   document.querySelector('.board-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
+
+/* ---------- 时限 ---------- */
+
+$('tc-custom').oninput = () => {
+  const v = $('tc-custom').value.trim();
+  if (v) { curTc = v; renderTcChips(); }
+  else if (!TIME_CONTROLS.includes(curTc)) { curTc = ''; renderTcChips(); }
+};
+
+/* ---------- 筛选 ---------- */
+
+// 输入时防抖，别每敲一个字就重排整个列表
+let fltTimer = null;
+$('fl-q').oninput = () => {
+  clearTimeout(fltTimer);
+  fltTimer = setTimeout(readFilters, 180);
+};
+['fl-white', 'fl-black', 'fl-tc', 'fl-event', 'fl-from', 'fl-to'].forEach(id => {
+  $(id).onchange = readFilters;
+});
+$('fl-clear').onclick = clearFilters;
+$('act-export-filtered').onclick = exportFilteredPgn;
+
+// 白黑方栏改动时，底部条上的名字要跟着变
+['f-white', 'f-black'].forEach(id => {
+  $(id).oninput = () => { if (isDirty()) renderDock(); };
+});
 $('act-undo').onclick    = deleteCurrentMove;
 $('act-promote').onclick = promoteCurrent;
 $('act-load').onclick        = loadPgnToBoard;
@@ -783,6 +1072,7 @@ $('act-import').onclick = () => {
     db = next;
     persist();
     newGame();
+    clearFilters();     // 换了一整库数据，旧筛选条件多半不适用了
     renderGames();
   });
 };
@@ -807,5 +1097,7 @@ document.addEventListener('keydown', e => {
 
 board = new Board($('board'), { onMove: onUserMove });
 $('f-date').value = today();
+renderTcChips();
+renderFilters();
 renderGames();
 syncBoard();

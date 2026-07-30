@@ -388,7 +388,175 @@ def main():
         pg.close()
 
         # ---------- 移动端 ----------
-        print("\n[15] 小屏布局")
+        # ---------- 时限 ----------
+        print("\n[15] 时限")
+        pg = fresh(b)
+        pg.on("dialog", lambda d: d.accept())
+        chips = pg.locator("#tc-chips .chip").all_inner_texts()
+        for t in ["1+0", "3+0", "3+2", "5+0", "5+3", "10+0", "15+0"]:
+            ok(f"有 {t} 选项", t in chips, chips)
+        ok("有「不记」", "不记" in chips)
+
+        play(pg, [("e2", "e4"), ("e7", "e5")])
+        pg.click("#tc-chips .chip:has-text('3+2')")
+        pg.wait_for_timeout(120)
+        pg.fill("#f-black", "小张")
+        pg.click("#act-save")
+        pg.wait_for_timeout(350)
+        ok("★ 时限存下来", pg.evaluate("() => db.games[0].tc") == "3+2",
+           pg.evaluate("() => db.games[0].tc"))
+        ok("列表显示时限", "3+2" in pg.locator("#game-list").inner_text())
+
+        pg.click("#act-new")
+        pg.wait_for_timeout(200)
+        play(pg, [("d2", "d4")])
+        pg.fill("#tc-custom", "25+10")
+        pg.wait_for_timeout(150)
+        ok("自定义时限生效", pg.evaluate("() => curTc") == "25+10")
+
+        conv = pg.evaluate("""() => ({
+            a: tcToPgn('3+2'), b: tcFromPgn('180+2'),
+            c: tcFromPgn('600+0'), d: tcFromPgn('-')
+        })""")
+        ok("3+2 → 180+2", conv["a"] == "180+2", conv)
+        ok("180+2 → 3+2", conv["b"] == "3+2", conv)
+        ok("600+0 → 10+0", conv["c"] == "10+0", conv)
+        ok("空值处理", conv["d"] == "", conv)
+        pg.close()
+
+        # ---------- 筛选与按筛选导出 ----------
+        print("\n[16] 筛选")
+        pg = fresh(b)
+        pg.on("dialog", lambda d: d.accept())
+        pg.evaluate("""() => {
+            const mk = (id,w,b,date,result,tc,event,tags) => {
+                const g = PGN.parse('1. e4 e5 2. Nf3 (2. Bc4 Bc5) Nc6');
+                return {id, white:w, black:b, date, result, tc, event,
+                        tags: tags||[], note:'', startFen:PGN.START_FEN,
+                        root:g.root, headers:{}, at:Date.now()};
+            };
+            db.games = [
+                mk('g1','我','老王','2024-05-01','1-0','3+2','线上快棋',['意大利']),
+                mk('g2','老王','我','2024-05-02','0-1','3+2','线上快棋',[]),
+                mk('g3','我','小李','2024-05-10','1/2-1/2','10+0','俱乐部',['西西里']),
+                mk('g4','小李','我','2024-06-01','1-0','1+0','线上快棋',[]),
+                mk('g5','我','老王','2024-06-15','*','15+0','俱乐部',[])
+            ];
+            persist(); renderFilters(); renderGames();
+        }""")
+        pg.wait_for_timeout(300)
+        ok("5 局全显示", pg.locator("#game-list li").count() == 5)
+
+        pg.click("#fl-result .chip:has-text('白胜')")
+        pg.wait_for_timeout(250)
+        ok("按结果筛出 2 局", pg.locator("#game-list li").count() == 2,
+           pg.locator("#game-list li").count())
+        pg.click("#fl-result .chip:has-text('全部')")
+        pg.wait_for_timeout(200)
+
+        pg.fill("#fl-q", "小李")
+        pg.wait_for_timeout(350)
+        ok("搜对手名得 2 局", pg.locator("#game-list li").count() == 2)
+        pg.fill("#fl-q", "西西里")
+        pg.wait_for_timeout(350)
+        ok("能搜标签", pg.locator("#game-list li").count() == 1)
+        pg.fill("#fl-q", "")
+        pg.wait_for_timeout(350)
+
+        pg.locator(".filters .more > summary").click()
+        pg.wait_for_timeout(150)
+        pg.select_option("#fl-tc", "3+2")
+        pg.wait_for_timeout(250)
+        ok("按时限筛出 2 局", pg.locator("#game-list li").count() == 2)
+        pg.select_option("#fl-tc", "")
+        pg.wait_for_timeout(200)
+        pg.fill("#fl-from", "2024-05-05")
+        pg.fill("#fl-to", "2024-06-05")
+        pg.wait_for_timeout(350)
+        ok("按日期区间筛出 2 局", pg.locator("#game-list li").count() == 2)
+
+        print("\n[17] 清空筛选不能留残留")
+        pg.click("#fl-clear")
+        pg.wait_for_timeout(250)
+        ok("回到 5 局", pg.locator("#game-list li").count() == 5)
+        leaked = pg.evaluate("() => Object.entries(flt).filter(([k,v]) => v)")
+        ok("★★ flt 内部无残留", not leaked, leaked)
+        ok("下拉也复位", pg.input_value("#fl-tc") == "", pg.input_value("#fl-tc"))
+        # 曾经的 bug：清空后 DOM 把旧值恢复回 flt，导致后续筛选莫名少几局
+        pg.select_option("#fl-tc", "3+2")
+        pg.wait_for_timeout(200)
+        pg.click("#fl-clear")
+        pg.wait_for_timeout(200)
+        pg.fill("#fl-q", "小李")
+        pg.wait_for_timeout(350)
+        ok("★★ 清空后再搜索不受旧条件影响",
+           pg.locator("#game-list li").count() == 2,
+           pg.evaluate("() => JSON.stringify(flt)"))
+        pg.click("#fl-clear")
+        pg.wait_for_timeout(250)
+
+        print("\n[18] 只导出筛选到的棋局")
+        pg.click("#fl-result .chip:has-text('白胜')")
+        pg.wait_for_timeout(250)
+        with pg.expect_download() as dl:
+            pg.click("#act-export-filtered")
+        c = open(dl.value.path(), encoding="utf-8").read()
+        ok("★★ 只导出 2 局", c.count("[White ") == 2, c.count("[White "))
+        ok("★★ 都是白胜", c.count('[Result "1-0"]') == 2)
+        ok("★★ 不含和棋那局", "1/2-1/2" not in c)
+        ok("变招保留", "Bc4" in c)
+        ok("时限写成 PGN 秒制", "180+2" in c,
+           [l for l in c.split("\n") if "TimeControl" in l][:2])
+        pg.click("#fl-clear")
+        pg.wait_for_timeout(200)
+        pg.close()
+
+        # ---------- 底部保存条 ----------
+        print("\n[19] 底部保存条")
+        pg = fresh(b)
+        pg.on("dialog", lambda d: d.accept())
+        ok("没棋时不显示",
+           not pg.locator("#dock").evaluate("e => e.classList.contains('on')"))
+        play(pg, [("e2", "e4"), ("e7", "e5")])
+        ok("★ 有未保存的棋就冒出来",
+           pg.locator("#dock").evaluate("e => e.classList.contains('on')"))
+        ok("写明几着没保存", "还没保存" in pg.locator("#dock-txt").inner_text(),
+           pg.locator("#dock-txt").inner_text())
+        pg.fill("#f-black", "老王")
+        pg.wait_for_timeout(200)
+        ok("显示对手名", "老王" in pg.locator("#dock-txt").inner_text())
+        pg.click("#dock-save")
+        pg.wait_for_timeout(350)
+        ok("★ 条上能直接保存", pg.evaluate("() => db.games.length") == 1)
+        ok("★ 存完自动收起",
+           not pg.locator("#dock").evaluate("e => e.classList.contains('on')"))
+        pg.close()
+
+        # ---------- 排版顺序 ----------
+        print("\n[20] 排版：填信息在保存按钮之前")
+        pg = fresh(b)
+        pos = pg.evaluate("""() => ['board','moves','f-white','act-save','game-list']
+            .map(id => document.getElementById(id).getBoundingClientRect().top + window.scrollY)""")
+        ok("棋盘 → 着法", pos[0] < pos[1], pos)
+        ok("着法 → 填信息", pos[1] < pos[2], pos)
+        ok("★ 填信息 → 保存", pos[2] < pos[3], pos)
+        ok("保存 → 已存列表", pos[3] < pos[4], pos)
+        pg.close()
+
+        # ---------- 双击缩放 ----------
+        print("\n[21] 禁掉双击缩放")
+        pg = fresh(b)
+        ok("html 有 touch-action",
+           "manipulation" in pg.evaluate(
+               "() => getComputedStyle(document.documentElement).touchAction"))
+        ok("导航键也有",
+           "manipulation" in pg.evaluate(
+               "() => getComputedStyle(document.getElementById('nav-next')).touchAction"))
+        h = pg.locator("#nav-next").bounding_box()["height"]
+        ok("导航键够高（≥40px）", h >= 40, f"{h}px")
+        pg.close()
+
+        print("\n[22] 小屏布局")
         pg = b.new_page(viewport={"width": 360, "height": 780})
         pg.goto(BASE, wait_until="networkidle")
         box = pg.locator(".cb-grid").bounding_box()
@@ -397,7 +565,7 @@ def main():
         ok("棋盘够大", box["width"] > 280, box["width"])
         pg.close()
 
-        print("\n[16] 无错误")
+        print("\n[23] 无错误")
         ok("无 JS 错误", not errs, errs[:2])
         ok("无 404", not bad404, bad404[:3])
 
