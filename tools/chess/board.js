@@ -19,6 +19,17 @@
   const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   // 相对 tools/chess/index.html
   const PIECE_DIR = 'pieces/';
+  const ALL_PIECES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP',
+                      'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'];
+
+  /* 12 个 SVG 提前拉进浏览器缓存。否则升变出后、或第一次吃掉某种子时
+     才去请求 + 解码，那一步会有可见的停顿。 */
+  (function preload() {
+    for (const code of ALL_PIECES) {
+      const img = new Image();
+      img.src = PIECE_DIR + code + '.svg';
+    }
+  })();
 
   /* 把 chess.js 的 {type:'p', color:'w'} 转成文件名 wP */
   function pieceCode(p) {
@@ -79,6 +90,15 @@
       const cells = this.grid.children;
       this.squares = {};
       let i = 0;
+      // 格名要重新分配，缓存的「这格现在是什么子」全部失效。
+      // 清缓存的同时必须把 DOM 也真的清空，否则状态和显示会脱节，
+      // 出现棋子残留。
+      for (const c of cells) {
+        c._pieceCode = '';
+        c._markKind = '';
+        if (c._pieceEl) c._pieceEl.classList.add('hidden');
+        if (c._markEl) c._markEl.classList.add('hidden');
+      }
       for (let r = 0; r < 8; r++) {
         for (let f = 0; f < 8; f++) {
           const rank = this.flipped ? r + 1 : 8 - r;
@@ -120,18 +140,33 @@
 
     /* ---------- 摆棋 ---------- */
 
-    setFen(fen) {
+    /**
+     * 摆局面。
+     * @param fen
+     * @param opts.lastMove 上一步 {from,to}，一起传进来可以省一次重画
+     * @param opts.defer    true = 只更新数据不重画，调用方稍后自己调 _render
+     */
+    setFen(fen, opts) {
+      const o = opts || {};
       const game = PGN.Engine.create(fen);
       if (!game) return false;
       this.fen = fen;
       this.game = game;
-      this._render();
+      this.selected = null;
+      this.dests = [];
+      if ('lastMove' in o) this.lastMove = o.lastMove || null;
+      if (!o.defer) this._render();
       return true;
     }
 
     setLastMove(mv) {
       this.lastMove = mv || null;
       this._render();
+    }
+
+    /** 一次性设置局面 + 上一步，只重画一遍 */
+    setPosition(fen, lastMove) {
+      return this.setFen(fen, { lastMove: lastMove });
     }
 
     flip() {
@@ -150,6 +185,14 @@
       this._clearSelection();
     }
 
+    /**
+     * 重画整盘。
+     *
+     * 关键是「复用而不是重建」：一步棋通常只改变 2 个格子，
+     * 但早先的版本每次都把 32 个棋子 <img> 删掉重新创建，
+     * 浏览器要重新解码 SVG，手机上走一步会有明显停顿。
+     * 现在棋子没变就只动 CSS 类，变了才改 src。
+     */
     _render() {
       const board = this.game.board();   // 8 行，从第 8 横线开始
       const st = PGN.Engine.status(this.game);
@@ -173,33 +216,84 @@
           const cell = this.squares[name];
           if (!cell) continue;
 
-          // 只重画棋子层，坐标留着
-          cell.querySelectorAll('.cb-piece, .cb-dot, .cb-cap').forEach(n => n.remove());
-          cell.classList.remove('sel', 'last', 'chk');
-
           const p = board[r][f];
-          if (p) {
-            const img = document.createElement('img');
-            img.className = 'cb-piece';
-            img.src = PIECE_DIR + pieceCode(p) + '.svg';
-            img.alt = '';
-            img.draggable = false;
-            cell.appendChild(img);
-          }
+          const want = p ? pieceCode(p) : '';
+          this._setPiece(cell, want);
 
-          if (this.selected === name) cell.classList.add('sel');
-          if (this.lastMove && (this.lastMove.from === name || this.lastMove.to === name)) {
-            cell.classList.add('last');
-          }
-          if (this.checkSquare === name) cell.classList.add('chk');
+          cell.classList.toggle('sel', this.selected === name);
+          cell.classList.toggle('last', !!this.lastMove &&
+            (this.lastMove.from === name || this.lastMove.to === name));
+          cell.classList.toggle('chk', this.checkSquare === name);
 
-          // 合法落点：空格画点，有子画圈（lichess 的视觉语言）
-          if (this.dests.includes(name)) {
-            const mark = document.createElement('span');
-            mark.className = p ? 'cb-cap' : 'cb-dot';
-            cell.appendChild(mark);
-          }
+          this._setMark(cell, this.dests.includes(name) ? (p ? 'cap' : 'dot') : '');
         }
+      }
+    }
+
+    /**
+     * 让某格显示指定棋子（'wQ'，'' 表示空格）。
+     *
+     * img 节点复用不销毁（避免反复解码 SVG），空格时用 hidden 类隐藏。
+     * 状态记在 cell._pieceCode 上：**必须和 DOM 的真实可见性保持一致**，
+     * 否则会出现「被吃的子没消失」这类残留。所以每条分支都把
+     * _pieceCode 和 hidden 类一起设置，不留半路返回的缝。
+     */
+    _setPiece(cell, code) {
+      if ((cell._pieceCode || '') === code) return;
+
+      let img = cell._pieceEl;
+
+      if (!code) {
+        if (img) img.classList.add('hidden');
+        cell._pieceCode = '';
+        return;
+      }
+
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'cb-piece';
+        img.alt = '';
+        img.draggable = false;
+        cell.appendChild(img);
+        cell._pieceEl = img;
+      }
+      // src 相同就不重设，避免触发不必要的重新解码
+      const want = PIECE_DIR + code + '.svg';
+      if (img.getAttribute('src') !== want) img.setAttribute('src', want);
+      img.classList.remove('hidden');
+      cell._pieceCode = code;
+    }
+
+    /** 合法落点标记：'dot'（空格）/ 'cap'（可吃子）/ ''（无） */
+    _setMark(cell, kind) {
+      if ((cell._markKind || '') === kind) return;
+
+      let el = cell._markEl;
+
+      if (!kind) {
+        if (el) el.classList.add('hidden');
+        cell._markKind = '';
+        return;
+      }
+      if (!el) {
+        el = document.createElement('span');
+        cell.appendChild(el);
+        cell._markEl = el;
+      }
+      el.className = (kind === 'cap' ? 'cb-cap' : 'cb-dot');
+      cell._markKind = kind;
+    }
+
+    /**
+     * 只更新选中态和落点标记，不碰棋子。
+     * 点一下选子时棋盘上棋子一个都没动，没必要走整盘 _render。
+     */
+    _renderMarks() {
+      for (const name in this.squares) {
+        const cell = this.squares[name];
+        cell.classList.toggle('sel', this.selected === name);
+        const hasPiece = !!cell._pieceCode;
+        this._setMark(cell, this.dests.includes(name) ? (hasPiece ? 'cap' : 'dot') : '');
       }
     }
 
@@ -236,13 +330,13 @@
     _select(name) {
       this.selected = name;
       this.dests = PGN.Engine.destinations(this.game, name);
-      this._render();
+      this._renderMarks();   // 棋子没动，只更新标记
     }
 
     _clearSelection() {
       this.selected = null;
       this.dests = [];
-      this._render();
+      this._renderMarks();
     }
 
     /** 判断这步是否需要升变 */

@@ -95,8 +95,8 @@ function confirmDiscard(what) {
   if (!isDirty()) return true;
   const n = PGN.countAll(cur.root);
   return confirm(
-    `当前这局录了 ${n} 着还没保存，${what}会丢掉。\n\n` +
-    '确定 = 丢掉继续\n取消 = 留在这里（可以先点「保存这局」）'
+    `棋盘上这 ${n} 着还没保存过，${what}就没了。\n\n` +
+    '确定 = 不要了，继续\n取消 = 先回去保存'
   );
 }
 
@@ -119,8 +119,8 @@ function curFen() {
 
 function syncBoard() {
   const n = curNode();
-  board.setFen(curFen());
-  board.setLastMove(n.san ? { from: n.from, to: n.to } : null);
+  // 局面和上一步一起传，只重画一遍（分两次调用会渲染两轮）
+  board.setPosition(curFen(), n.san ? { from: n.from, to: n.to } : null);
   renderMoves();
   renderStatus();
   renderNav();
@@ -142,9 +142,14 @@ function renderStatus() {
   else                   s = st.turn === 'w' ? '白方走' : '黑方走';
 
   const pos = n.san ? `第 ${ply} 手` : '开局';
+  // 存没存过要一眼能看见，否则用户不确定该不该点保存
+  let saveState = '';
+  if (total > 0) saveState = cur.id ? ' · 已保存' : ' · 未保存';
+
   $('status').innerHTML =
     `<span class="${(st.checkmate || st.check) ? 'warn' : ''}">${s}</span>` +
-    ` · ${pos} · 共 ${total} 着`;
+    ` · ${pos} · 共 ${total} 着` +
+    (cur.id ? saveState : `<span class="warn">${saveState}</span>`);
 }
 
 function renderNav() {
@@ -361,7 +366,8 @@ function saveCurrent() {
     if (g) {
       Object.assign(g, form, { root: cur.root, startFen: cur.startFen, headers: cur.headers });
       persist(); renderGames();
-      flash('已更新');
+      renderStatus();          // 状态栏里的「已保存/未保存」要跟着更新
+      showSavedTip(g, true);
       return;
     }
   }
@@ -373,7 +379,42 @@ function saveCurrent() {
   db.games.unshift(g);
   cur.id = g.id;
   persist(); renderGames();
-  flash('已保存');
+  renderStatus();            // 同上，让「未保存」立刻变「已保存」
+  renderNav();
+  showSavedTip(g, false);
+}
+
+/**
+ * 保存后的明确回执。
+ * 之前只在状态栏闪一行小字，用户会不确定到底存上没有，
+ * 也不知道接下来该点哪个按钮开新的一局。
+ */
+function showSavedTip(g, isUpdate) {
+  const box = $('saved-tip');
+  const who = (g.white || g.black)
+    ? `${g.white || '白方'} — ${g.black || '黑方'}`
+    : openingLabel(g);
+
+  box.innerHTML = '';
+  const line = document.createElement('div');
+  line.innerHTML = isUpdate
+    ? `已更新 <b>${escapeHtml(who)}</b>`
+    : `已存好 <b>${escapeHtml(who)}</b>，在下面「Saved」里`;
+  const sub = document.createElement('span');
+  sub.className = 'sub';
+  sub.textContent = isUpdate
+    ? '这局的改动已经写进去了'
+    : '想再下一盘，点上面「再下一盘」——已存的这局不会动';
+  box.append(line, sub);
+  box.classList.add('on');
+
+  clearTimeout(showSavedTip._t);
+  showSavedTip._t = setTimeout(() => box.classList.remove('on'), 9000);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 function loadGame(id) {
@@ -390,8 +431,13 @@ function loadGame(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+/**
+ * 开一盘新的。只重置棋盘上的临时状态（cur），
+ * 完全不碰 db.games，所以已经保存过的棋局一局都不会少。
+ */
 function newGame() {
-  if (!confirmDiscard('清空')) return;
+  if (!confirmDiscard('开新的一盘')) return;
+  $('saved-tip').classList.remove('on');
   cur.id = null;
   cur.startFen = PGN.START_FEN;
   cur.root = PGN.newRoot();
@@ -545,6 +591,8 @@ function renderGames() {
 
   $('game-empty').style.display = rows.length ? 'none' : 'block';
   $('game-count').textContent = rows.length ? `${rows.length} 局` : '';
+  // 列表里有东西时才显示「再下一盘」，空列表时这个按钮没意义
+  $('list-actions').style.display = rows.length ? 'flex' : 'none';
 
   for (const g of rows) {
     const li = document.createElement('li');
@@ -578,20 +626,33 @@ function renderGames() {
     main.append(t, meta);
     main.onclick = () => loadGame(g.id);
 
+    const acts = document.createElement('div');
+    acts.className = 'gacts';
+
+    // 单局导出：整库导出对「只想发这一盘给别人看」没用
+    const exp = document.createElement('button');
+    exp.className = 'iconbtn';
+    exp.type = 'button';
+    exp.textContent = '↓';
+    exp.title = '把这一局导出成 PGN';
+    exp.onclick = e => { e.stopPropagation(); exportOnePgn(g.id); };
+
     const del = document.createElement('button');
-    del.className = 'del';
+    del.className = 'iconbtn';
     del.type = 'button';
     del.textContent = '×';
-    del.style.cssText = 'background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:16px;color:var(--text-sec);opacity:.5;padding:0 2px';
+    del.title = '删除这一局';
     del.onclick = e => {
       e.stopPropagation();
-      if (!confirm(`删除「${w} — ${b}」？`)) return;
+      const label = (g.white || g.black) ? `${w} — ${b}` : openingLabel(g);
+      if (!confirm(`删除「${label}」？\n\n删了就找不回来了。`)) return;
       db.games = db.games.filter(x => x.id !== g.id);
       if (cur.id === g.id) cur.id = null;
-      persist(); renderGames();
+      persist(); renderGames(); renderStatus();
     };
 
-    li.append(main, del);
+    acts.append(exp, del);
+    li.append(main, acts);
     ul.appendChild(li);
   }
 }
@@ -600,29 +661,54 @@ function renderGames() {
    导出
    ============================================================ */
 
-function exportPgn() {
-  if (!db.games.length) { alert('还没有棋局可以导出'); return; }
-
-  const parts = db.games.map(g => {
-    const headers = Object.assign({}, g.headers, {
-      Event:  g.event || 'Casual Game',
-      Date:   (g.date || today()).replace(/-/g, '.'),
-      White:  g.white || '?',
-      Black:  g.black || '?',
-      Result: g.result || '*'
-    });
-    if (g.note) headers.Annotator = g.note.replace(/[\[\]"]/g, '');
-    return PGN.build({ headers, startFen: g.startFen, root: g.root });
+/** 把一局转成标准 PGN 文本 */
+function gameToPgn(g) {
+  const headers = Object.assign({}, g.headers, {
+    Event:  g.event || 'Casual Game',
+    Date:   (g.date || today()).replace(/-/g, '.'),
+    White:  g.white || '?',
+    Black:  g.black || '?',
+    Result: g.result || '*'
   });
+  if (g.note) headers.Annotator = g.note.replace(/[\[\]"]/g, '');
+  return PGN.build({ headers, startFen: g.startFen, root: g.root });
+}
 
-  const blob = new Blob([parts.join('\n\n')], { type: 'application/x-chess-pgn' });
+/** 触发一次文件下载 */
+function downloadText(text, filename, mime) {
+  const blob = new Blob([text], { type: mime || 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `棋谱-${today().replace(/-/g, '')}.pgn`;
+  a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** 文件名里不能有路径分隔符等字符 */
+function safeName(s) {
+  return String(s).replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
+/** 导出全部棋局到一个 .pgn */
+function exportAllPgn() {
+  if (!db.games.length) { alert('还没有棋局可以导出'); return; }
+  const parts = db.games.map(gameToPgn);
+  downloadText(parts.join('\n\n'), `棋谱全部-${today().replace(/-/g, '')}.pgn`,
+               'application/x-chess-pgn');
   flash(`导出 ${db.games.length} 局`);
+}
+
+/** 只导出某一局 */
+function exportOnePgn(id) {
+  const g = db.games.find(x => x.id === id);
+  if (!g) return;
+  const who = (g.white || g.black)
+    ? `${safeName(g.white || '白')}-${safeName(g.black || '黑')}`
+    : '对局';
+  downloadText(gameToPgn(g), `${who}-${(g.date || today()).replace(/-/g, '')}.pgn`,
+               'application/x-chess-pgn');
+  flash('已导出这一局');
 }
 
 /* ============================================================
@@ -659,11 +745,16 @@ $('nav-flip').onclick  = () => board.flip();
 
 $('act-save').onclick    = saveCurrent;
 $('act-new').onclick     = newGame;
+$('act-new2').onclick    = () => {
+  newGame();
+  // 从列表底部点的，得把视线带回棋盘，否则看不出发生了什么
+  document.querySelector('.board-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 $('act-undo').onclick    = deleteCurrentMove;
 $('act-promote').onclick = promoteCurrent;
 $('act-load').onclick        = loadPgnToBoard;
 $('act-import-save').onclick = importAndSave;
-$('act-export-pgn').onclick  = exportPgn;
+$('act-export-pgn').onclick  = exportAllPgn;
 
 $('act-export').onclick = () => store.exportFile();
 $('act-import').onclick = () => {
