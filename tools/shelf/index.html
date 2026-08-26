@@ -142,29 +142,20 @@
   .stars { color:var(--orange); letter-spacing:1px; }
 
   .it-tail { flex-shrink:0; display:flex; align-items:center; gap:8px; }
-  .it-days {
-    font-family:var(--mono); font-size:10px; letter-spacing:1px;
-    color:var(--text-sec); white-space:nowrap;
-  }
-  /* 打卡按钮：今天记过就变实心 */
-  .tick {
+
+  /* 豆瓣跳转：行尾唯一的操作。手机上要好按，给足点击区域 */
+  .db-tag {
     font-family:var(--mono); font-size:11px; letter-spacing:.5px;
-    background:transparent; color:var(--text-sec);
+    color:var(--text-sec); text-decoration:none;
     border:1.5px solid var(--line); border-radius:99px;
-    padding:4px 10px; cursor:pointer; white-space:nowrap;
+    padding:4px 11px; line-height:1.5; white-space:nowrap;
     transition:background .15s, color .15s, border-color .15s;
   }
-  .tick:hover { border-color:var(--orange); color:var(--orange); }
-  .tick.on { background:var(--orange); border-color:var(--orange); color:#fff; }
-
-  /* 豆瓣角标 */
-  .db-tag {
-    font-family:var(--mono); font-size:10px; letter-spacing:.5px;
-    color:var(--text-sec); text-decoration:none;
-    border:1px solid var(--line); border-radius:5px;
-    padding:1px 4px; line-height:1.5; white-space:nowrap;
+  .db-tag:hover, .db-tag:active {
+    background:var(--orange); border-color:var(--orange); color:#fff;
   }
-  .db-tag:hover { border-color:var(--orange); color:var(--orange); }
+  /* 没存链接、只能按标题去搜的，虚线框区分一下 */
+  .db-tag.guess { border-style:dashed; opacity:.72; }
 
   .bar {
     display:flex; justify-content:space-between; align-items:center;

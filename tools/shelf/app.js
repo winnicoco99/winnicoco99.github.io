@@ -224,7 +224,7 @@ function renderList() {
   $('count').textContent = rows.length ? `${pad(rows.length)} 条` : '';
 }
 
-/** 紧凑一行：状态点 · 标题 · 分类/日期/评分 · 豆瓣 · 打卡 */
+/** 紧凑一行：状态点 · 标题 · 分类/日期/评分 · 豆瓣跳转 */
 function itemRow(it) {
   const li = document.createElement('li');
 
@@ -266,32 +266,38 @@ function itemRow(it) {
 
   main.append(t, meta);
 
+  // 行尾只放豆瓣入口。打卡挪到详情页的日历里 ——
+  // 列表是用来扫读和找东西的，不该在这儿误触改数据。
   const tail = document.createElement('div');
   tail.className = 'it-tail';
-
-  if (it.link) {
-    const a = document.createElement('a');
-    a.className = 'db-tag';
-    a.href = it.link;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.textContent = '豆';
-    a.title = '在豆瓣打开';
-    a.onclick = e => e.stopPropagation();
-    tail.appendChild(a);
-  }
-
-  const hitToday = it.dates.includes(today());
-  const tick = document.createElement('button');
-  tick.type = 'button';
-  tick.className = 'tick' + (hitToday ? ' on' : '');
-  tick.textContent = hitToday ? '今天看了' : '打卡';
-  tick.title = hitToday ? '再点一次取消今天的打卡' : '记一次「今天看了这个」';
-  tick.onclick = e => { e.stopPropagation(); toggleCheckin(it.id, today()); };
-  tail.appendChild(tick);
+  tail.appendChild(doubanLink(it));
 
   li.append(dot, main, tail);
   return li;
+}
+
+/**
+ * 豆瓣跳转链接。存过条目链接就直接去那一页，
+ * 没存过就退回按标题搜 —— 这样每条都有入口，不用先去补链接。
+ */
+function doubanLink(it) {
+  const a = document.createElement('a');
+  a.className = 'db-tag';
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.textContent = '豆瓣';
+  a.onclick = e => e.stopPropagation();   // 别连带触发整行进详情
+
+  if (it.link) {
+    a.href = it.link;
+    a.title = '在豆瓣打开这一条';
+  } else {
+    const kind = kindOf(it.cat);
+    a.href = `https://${kind}.douban.com/subject_search?search_text=${encodeURIComponent(it.title)}`;
+    a.title = '这条还没存豆瓣链接，先去豆瓣搜一下';
+    a.classList.add('guess');
+  }
+  return a;
 }
 
 /* ============================================================
@@ -387,15 +393,20 @@ function renderItem() {
     : '还没记');
   if (it.dates.length > 1) add('天数', it.dates.length + ' 天');
 
+  // 没存链接也给个搜索入口，省得为了跳转先回去编辑
+  const dbA = document.createElement('a');
+  dbA.target = '_blank';
+  dbA.rel = 'noopener noreferrer';
+  dbA.style.color = 'var(--orange)';
   if (it.link) {
-    const a = document.createElement('a');
-    a.href = it.link;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.style.color = 'var(--orange)';
-    a.textContent = '在豆瓣打开 ↗';
-    add('豆瓣', a);
+    dbA.href = it.link;
+    dbA.textContent = '在豆瓣打开 ↗';
+  } else {
+    dbA.href = `https://${kindOf(it.cat)}.douban.com/subject_search?search_text=${encodeURIComponent(it.title)}`;
+    dbA.textContent = '去豆瓣搜这个 ↗';
   }
+  add('豆瓣', dbA);
+
   box.appendChild(dl);
 
   /* ---- 评价 ---- */
