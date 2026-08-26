@@ -1,47 +1,39 @@
 /* ============================================================
-   收藏夹 —— 记录看过的电影 / 电视剧 / 书，并按日期在日历上回看
+   收藏夹 —— 把观影 / 读书 / 听播客这些事记在一处，
+   既能从某部片子查到「我什么时候看的、当时怎么评价」，
+   也能从某一天翻回「这天我都看了什么」。
    ------------------------------------------------------------
    数据结构（存在 localStorage 的 workbench.shelf）：
    {
      cats:  ['电影','电视剧','书籍', ...自定义],
-     items: [{ id, title, cat, date:'YYYY-MM-DD', status,
-                stars:0-5, note, cover, link, at }]
+     items: [{ id, title, cat, dates:['YYYY-MM-DD', ...], status,
+                stars:0-5, note, link, at }]
    }
 
-   封面三层降级：手填/自动获取的链接 → 本地上传（压成缩略图存）
-   → 都没有就用标题首字做排版封面。豆瓣接口不稳，所以它只是加速器，
-   任何时候都能手动完成记录。
+   两个设计取舍：
+
+   1. 时间用「打卡日期数组」而不是单个日期
+      电影一天看完就是一个日期；剧和书要跨好些天，而且是断续的
+      （追两集停一周再追）。所以跟藏书馆一样每条自己有日历，
+      点一天就代表那天看了。单日期是数组长度为 1 的特例，
+      不需要两套逻辑，日历视图也只认这一个数组。
+
+   2. 不做封面
+      封面要么手动找图上传，要么走豆瓣防盗链抓图，两条路都费事，
+      base64 还占满 localStorage。改成藏书馆那种紧凑目录：
+      一条压到一行文字的高度，一屏扫十几条，比封面墙更好找东西。
+      想看剧照点豆瓣链接过去就行。
    ============================================================ */
 
 const store = new Store('shelf');
 
-const DEFAULT_CATS = ['电影', '电视剧', '书籍'];
+const DEFAULT_CATS = ['电影', '电视剧', '书籍', '播客'];
 const STATUSES = ['想看', '在看', '看完'];
 
-/* ---------- 数据读写 ---------- */
+/* ---------- 小工具 ---------- */
 
-// 导入的数据可能结构不对，统一收敛成合法形状，避免页面崩掉
-function normalize(raw) {
-  const d = (raw && typeof raw === 'object') ? raw : {};
-  const cats = Array.isArray(d.cats) && d.cats.length ? d.cats.slice() : DEFAULT_CATS.slice();
-  const items = (Array.isArray(d.items) ? d.items : []).map(it => ({
-    id:     it.id || uid(),
-    title:  String(it.title || '').trim(),
-    cat:    cats.includes(it.cat) ? it.cat : cats[0],
-    date:   /^\d{4}-\d{2}-\d{2}$/.test(it.date) ? it.date : today(),
-    status: STATUSES.includes(it.status) ? it.status : '看完',
-    stars:  Math.max(0, Math.min(5, Number(it.stars) || 0)),
-    note:   String(it.note || ''),
-    cover:  String(it.cover || ''),
-    link:   String(it.link || ''),
-    at:     it.at || Date.now()
-  })).filter(it => it.title);
-
-  return { cats, items };
-}
-
-let db = normalize(store.load(null));
-const persist = () => store.save(db);
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -49,55 +41,145 @@ function uid() {
 
 function today() {
   const d = new Date();
-  const p = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-const $ = id => document.getElementById(id);
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-/* ---------- 封面：没有图时用标题首字 ---------- */
+/** 把 'YYYY-MM-DD' 解析成本地时间的 Date（不加 T00:00:00 会被当 UTC，差一天） */
+const parseDate = s => new Date(s + 'T00:00:00');
 
-function fillCover(el, item) {
-  el.innerHTML = '';
-  if (item.cover) {
-    const img = document.createElement('img');
-    img.src = item.cover;
-    img.alt = '';
-    img.loading = 'lazy';
-    // 图挂了就退回排版封面，不留破图占位
-    img.onerror = () => { el.innerHTML = ''; el.appendChild(charCover(item)); };
-    el.appendChild(img);
-  } else {
-    el.appendChild(charCover(item));
+const fmtDate = s => s.slice(5).replace('-', '/');
+
+/** 起止日期之间的每一天，含两端。用来把「观看范围」摊成打卡数组 */
+function dateRange(from, to) {
+  if (!isDate(from) || !isDate(to)) return [];
+  let a = from, b = to;
+  if (a > b) { const t = a; a = b; b = t; }
+
+  const out = [];
+  const cur = parseDate(a);
+  const end = parseDate(b);
+  // 跨度过大多半是手滑输错年份，兜一个上限免得卡死
+  while (cur <= end && out.length < 2000) {
+    out.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`);
+    cur.setDate(cur.getDate() + 1);
   }
+  return out;
 }
 
-function charCover(item) {
-  const s = document.createElement('span');
-  s.className = 'ch';
-  s.textContent = (item.title || '—').trim().charAt(0) || '—';
-  return s;
+/* ---------- 数据读写 ---------- */
+
+/**
+ * 统一收敛成合法结构，顺带做老数据迁移：
+ *   - date 单日期 → dates 数组
+ *   - cover 封面（含 base64）直接丢掉，不再占空间
+ * 导入的备份也走这里，结构不对不会把页面搞崩。
+ */
+function normalize(raw) {
+  const d = (raw && typeof raw === 'object') ? raw : {};
+  const cats = Array.isArray(d.cats) && d.cats.length ? d.cats.slice() : DEFAULT_CATS.slice();
+
+  const items = (Array.isArray(d.items) ? d.items : []).map(it => {
+    // 新结构用 dates，老结构只有 date
+    let dates = Array.isArray(it.dates) ? it.dates.filter(isDate) : [];
+    if (!dates.length && isDate(it.date)) dates = [it.date];
+    dates = Array.from(new Set(dates)).sort();
+
+    return {
+      id:     it.id || uid(),
+      title:  String(it.title || '').trim(),
+      cat:    cats.includes(it.cat) ? it.cat : cats[0],
+      dates,
+      status: STATUSES.includes(it.status) ? it.status : '看完',
+      stars:  Math.max(0, Math.min(5, Number(it.stars) || 0)),
+      note:   String(it.note || ''),
+      link:   String(it.link || ''),
+      at:     it.at || Date.now()
+    };
+  }).filter(it => it.title);
+
+  return { cats, items };
+}
+
+let db = normalize(store.load(null));
+
+/** 老数据里的封面 base64 不迁移，第一次打开就写回一份干净的，把空间放出来 */
+(function dropLegacyCovers() {
+  const raw = store.load(null);
+  if (raw && Array.isArray(raw.items) && raw.items.some(i => i && i.cover)) {
+    store.save(db);
+  }
+})();
+
+const persist = () => store.save(db);
+
+/** 一条记录的时间跨度：单日显示一个日期，多日显示首尾 */
+function spanText(it) {
+  if (!it.dates.length) return '未记日期';
+  if (it.dates.length === 1) return fmtDate(it.dates[0]);
+  const a = it.dates[0], b = it.dates[it.dates.length - 1];
+  return `${fmtDate(a)}–${fmtDate(b)}`;
 }
 
 /* ============================================================
    视图切换
    ============================================================ */
 
+function showView(v) {
+  ['list', 'cal', 'item'].forEach(x => $('v-' + x).classList.toggle('on', x === v));
+  // 详情是从清单钻进去的，不属于顶层 tab，进去时把 tab 条收起来
+  $('tabs').classList.toggle('hide', v === 'item');
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('on', t.dataset.view === v);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 document.querySelectorAll('.tab').forEach(t => {
   t.onclick = () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
     const v = t.dataset.view;
-    $('v-list').classList.toggle('on', v === 'list');
-    $('v-cal').classList.toggle('on', v === 'cal');
+    showView(v);
     if (v === 'cal') renderCal();
+    else renderList();
   };
 });
+
+$('item-back').onclick = () => { openItemId = null; showView('list'); renderAll(); };
 
 /* ============================================================
    清单视图
    ============================================================ */
 
 let filterCat = '全部';
+let keyword = '';
+
+function renderStats() {
+  const t = today();
+  const box = $('stats');
+  const todayCnt = db.items.filter(i => i.dates.includes(t)).length;
+  const watching = db.items.filter(i => i.status === '在看').length;
+  const done     = db.items.filter(i => i.status === '看完').length;
+
+  const cells = [
+    ['今天', todayCnt, true],
+    ['在看', watching, false],
+    ['看完', done, false],
+    ['共计', db.items.length, false]
+  ];
+
+  box.innerHTML = '';
+  cells.forEach(([label, n, hot]) => {
+    const d = document.createElement('div');
+    d.className = 'stat' + (hot ? ' today' : '');
+    const b = document.createElement('b');
+    b.textContent = n;
+    const s = document.createElement('span');
+    s.textContent = label;
+    d.append(b, s);
+    box.appendChild(d);
+  });
+}
 
 function renderFilter() {
   const box = $('filter');
@@ -113,104 +195,397 @@ function renderFilter() {
   });
 }
 
+function matches(it) {
+  if (filterCat !== '全部' && it.cat !== filterCat) return false;
+  if (!keyword) return true;
+  const k = keyword.toLowerCase();
+  return (it.title + ' ' + it.note).toLowerCase().includes(k);
+}
+
 function renderList() {
   const listEl = $('list');
   listEl.innerHTML = '';
 
-  const rows = db.items
-    .filter(i => filterCat === '全部' || i.cat === filterCat)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.at - a.at);
+  const rows = db.items.filter(matches).sort((a, b) => {
+    // 在看的排最前 —— 这些是手上正在追的，最常要打卡
+    const rank = s => s === '在看' ? 0 : s === '想看' ? 1 : 2;
+    const last = i => i.dates.length ? i.dates[i.dates.length - 1] : '';
+    return rank(a.status) - rank(b.status)
+        || last(b).localeCompare(last(a))
+        || b.at - a.at;
+  });
 
   $('empty').style.display = rows.length ? 'none' : 'block';
   $('empty').innerHTML = db.items.length
-    ? '这个分类下还没有记录'
+    ? '没有符合条件的记录'
     : '还没有记录<br>点上面「记一条」开始';
 
   rows.forEach(it => listEl.appendChild(itemRow(it)));
-
-  const pad = n => String(n).padStart(2, '0');
-  $('count').textContent = db.items.length ? `${pad(rows.length)} 条` : '';
+  $('count').textContent = rows.length ? `${pad(rows.length)} 条` : '';
 }
 
+/** 紧凑一行：状态点 · 标题 · 分类/日期/评分 · 豆瓣 · 打卡 */
 function itemRow(it) {
   const li = document.createElement('li');
 
-  const cov = document.createElement('div');
-  cov.className = 'cover';
-  fillCover(cov, it);
+  const dot = document.createElement('span');
+  dot.className = 'it-dot' + (it.status === '在看' ? ' watching' : it.status === '看完' ? ' done' : '');
+  dot.title = it.status;
 
-  const main = document.createElement('div');
+  // 整块可点，进详情
+  const main = document.createElement('button');
+  main.type = 'button';
   main.className = 'it-main';
+  main.onclick = () => openItem(it.id);
 
-  const t = document.createElement('div');
+  const t = document.createElement('span');
   t.className = 'it-title';
   t.textContent = it.title;
 
-  const meta = document.createElement('div');
+  const meta = document.createElement('span');
   meta.className = 'it-meta';
-  meta.append(document.createTextNode(it.cat));
-  meta.appendChild(dot());
-  meta.append(document.createTextNode(it.date.slice(5).replace('-', '/')));
-  meta.appendChild(dot());
-  meta.append(document.createTextNode(it.status));
+  const bits = [it.cat, spanText(it)];
+  if (it.dates.length > 1) bits.push(it.dates.length + ' 天');
+  bits.forEach((b, i) => {
+    if (i) {
+      const s = document.createElement('span');
+      s.className = 'dot'; s.textContent = '·';
+      meta.appendChild(s);
+    }
+    meta.append(document.createTextNode(b));
+  });
   if (it.stars) {
-    meta.appendChild(dot());
     const s = document.createElement('span');
-    s.className = 'stars';
-    s.textContent = '●'.repeat(it.stars);
+    s.className = 'dot'; s.textContent = '·';
     meta.appendChild(s);
+    const st = document.createElement('span');
+    st.className = 'stars';
+    st.textContent = '●'.repeat(it.stars);
+    meta.appendChild(st);
   }
 
   main.append(t, meta);
 
-  if (it.note) {
-    const n = document.createElement('div');
-    n.className = 'it-note';
-    n.textContent = it.note;
-    main.appendChild(n);
+  const tail = document.createElement('div');
+  tail.className = 'it-tail';
+
+  if (it.link) {
+    const a = document.createElement('a');
+    a.className = 'db-tag';
+    a.href = it.link;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = '豆';
+    a.title = '在豆瓣打开';
+    a.onclick = e => e.stopPropagation();
+    tail.appendChild(a);
   }
 
-  const acts = document.createElement('div');
-  acts.className = 'it-acts';
+  const hitToday = it.dates.includes(today());
+  const tick = document.createElement('button');
+  tick.type = 'button';
+  tick.className = 'tick' + (hitToday ? ' on' : '');
+  tick.textContent = hitToday ? '今天看了' : '打卡';
+  tick.title = hitToday ? '再点一次取消今天的打卡' : '记一次「今天看了这个」';
+  tick.onclick = e => { e.stopPropagation(); toggleCheckin(it.id, today()); };
+  tail.appendChild(tick);
 
-  const ed = document.createElement('button');
-  ed.className = 'iconbtn'; ed.type = 'button';
-  ed.textContent = '✎'; ed.title = '编辑';
-  ed.onclick = () => openForm(it.id);
-
-  const del = document.createElement('button');
-  del.className = 'iconbtn'; del.type = 'button';
-  del.textContent = '×'; del.title = '删除';
-  del.onclick = () => {
-    if (!confirm(`删除「${it.title}」？`)) return;
-    db.items = db.items.filter(x => x.id !== it.id);
-    persist(); renderAll();
-  };
-
-  acts.append(ed, del);
-  li.append(cov, main, acts);
+  li.append(dot, main, tail);
   return li;
 }
 
-function dot() {
-  const s = document.createElement('span');
-  s.className = 'dot';
-  s.textContent = '·';
-  return s;
+/* ============================================================
+   打卡
+   ------------------------------------------------------------
+   一天可以给多条各打一次，互不干扰。同一条同一天只算一次，
+   再点是取消（记错了能撤）。想看的一打卡就自动变「在看」，
+   省一次手动改状态。
+   ============================================================ */
+
+function toggleCheckin(id, date) {
+  const it = db.items.find(i => i.id === id);
+  if (!it) return;
+
+  const set = new Set(it.dates);
+  if (set.has(date)) {
+    set.delete(date);
+  } else {
+    set.add(date);
+    if (it.status === '想看') it.status = '在看';
+  }
+  it.dates = Array.from(set).sort();
+
+  if (!persist()) return;
+  renderAll();
+}
+
+/* ============================================================
+   条目详情：从内容定位到「什么时候看的 + 当时的评价」
+   ============================================================ */
+
+let openItemId = null;
+let dCalY, dCalM;
+
+function openItem(id) {
+  const it = db.items.find(i => i.id === id);
+  if (!it) return;
+  openItemId = id;
+
+  // 日历默认落在有记录的月份：有打卡就停在最近一次，否则本月
+  const last = it.dates[it.dates.length - 1];
+  const base = last ? parseDate(last) : new Date();
+  dCalY = base.getFullYear();
+  dCalM = base.getMonth();
+
+  showView('item');
+  renderItem();
+}
+
+function segHead(en, cn, extra) {
+  const d = document.createElement('div');
+  d.className = 'seg';
+  const l = document.createElement('span');
+  l.className = 'overline sec';
+  l.textContent = en;
+  const r = document.createElement('span');
+  r.className = 'cal-foot';
+  r.style.margin = '0';
+  r.textContent = extra || '';
+  d.append(l, r);
+  return d;
+}
+
+function renderItem() {
+  const it = db.items.find(i => i.id === openItemId);
+  if (!it) { showView('list'); return; }
+
+  const box = $('detail');
+  box.innerHTML = '';
+
+  const h = document.createElement('h2');
+  h.textContent = it.title;
+  box.appendChild(h);
+
+  const sub = document.createElement('div');
+  sub.className = 'sub';
+  sub.textContent = [it.cat, it.status, it.stars ? '●'.repeat(it.stars) : ''].filter(Boolean).join('  ·  ');
+  box.appendChild(sub);
+
+  /* ---- 基本信息 ---- */
+  const dl = document.createElement('dl');
+  dl.className = 'info';
+
+  const add = (k, node) => {
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd');
+    if (typeof node === 'string') dd.textContent = node; else dd.appendChild(node);
+    dl.append(dt, dd);
+  };
+
+  add('时间', it.dates.length
+    ? (it.dates.length === 1 ? it.dates[0] : `${it.dates[0]} — ${it.dates[it.dates.length - 1]}`)
+    : '还没记');
+  if (it.dates.length > 1) add('天数', it.dates.length + ' 天');
+
+  if (it.link) {
+    const a = document.createElement('a');
+    a.href = it.link;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.color = 'var(--orange)';
+    a.textContent = '在豆瓣打开 ↗';
+    add('豆瓣', a);
+  }
+  box.appendChild(dl);
+
+  /* ---- 评价 ---- */
+  box.appendChild(segHead('Review', '评价', ''));
+  if (it.note) {
+    const n = document.createElement('div');
+    n.className = 'note-body';
+    n.textContent = it.note;
+    box.appendChild(n);
+  } else {
+    const n = document.createElement('p');
+    n.className = 'note-none';
+    n.textContent = '还没写评价。点下面「编辑」补一句。';
+    box.appendChild(n);
+  }
+
+  /* ---- 打卡日历 ---- */
+  box.appendChild(segHead('Calendar', '观看打卡',
+    it.dates.length ? (it.dates.length + ' 天') : ''));
+  box.appendChild(buildItemCal(it));
+
+  /* ---- 操作 ---- */
+  const acts = document.createElement('div');
+  acts.className = 'row';
+  acts.style.marginTop = '30px';
+
+  const ed = document.createElement('button');
+  ed.className = 'btn'; ed.type = 'button'; ed.textContent = '编辑';
+  ed.onclick = () => { showView('list'); openForm(it.id); };
+
+  const del = document.createElement('button');
+  del.className = 'btn-ghost'; del.type = 'button'; del.textContent = '删除';
+  del.onclick = () => {
+    if (!confirm(`删除「${it.title}」？`)) return;
+    db.items = db.items.filter(x => x.id !== it.id);
+    if (!persist()) return;
+    openItemId = null;
+    showView('list');
+    renderAll();
+  };
+
+  acts.append(ed, del);
+  box.appendChild(acts);
+}
+
+/**
+ * 单条目的打卡日历。点任意一天切换那天的状态 ——
+ * 不只是今天，补记前几天看过的也行（经常隔几天才想起来记）。
+ * 未来的日期点不了，避免误触。
+ */
+function buildItemCal(it) {
+  const wrap = document.createElement('div');
+  const hits = new Set(it.dates);
+  const t = today();
+
+  /* 月份导航 */
+  const top = document.createElement('div');
+  top.className = 'cal-top';
+  const title = document.createElement('div');
+  title.className = 'cal-title';
+  title.textContent = `${dCalY} / ${pad(dCalM + 1)}`;
+  const nav = document.createElement('div');
+  nav.className = 'cal-nav';
+
+  const mk = (txt, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = txt; b.onclick = fn;
+    return b;
+  };
+  nav.append(
+    mk('‹', () => { dCalM--; if (dCalM < 0) { dCalM = 11; dCalY--; } renderItem(); }),
+    mk('›', () => { dCalM++; if (dCalM > 11) { dCalM = 0; dCalY++; } renderItem(); })
+  );
+  top.append(title, nav);
+  wrap.appendChild(top);
+
+  const week = document.createElement('div');
+  week.className = 'cal-week';
+  ['一','二','三','四','五','六','日'].forEach(d => {
+    const s = document.createElement('span'); s.textContent = d; week.appendChild(s);
+  });
+  wrap.appendChild(week);
+
+  const grid = document.createElement('div');
+  grid.className = 'ccal';
+
+  const lead = (new Date(dCalY, dCalM, 1).getDay() + 6) % 7;   // 周一为一周起点
+  const days = new Date(dCalY, dCalM + 1, 0).getDate();
+
+  for (let i = 0; i < lead; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell pad';
+    grid.appendChild(c);
+  }
+
+  for (let d = 1; d <= days; d++) {
+    const key = `${dCalY}-${pad(dCalM + 1)}-${pad(d)}`;
+    const isFuture = key > t;
+
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'cell'
+      + (hits.has(key) ? ' hit' : '')
+      + (key === t ? ' today' : '')
+      + (isFuture ? ' future' : '');
+    cell.textContent = d;
+    cell.disabled = isFuture;
+    cell.title = isFuture ? ''
+      : (hits.has(key) ? key + ' 已打卡，点击取消' : '记一次 ' + key + ' 看过');
+    if (!isFuture) cell.onclick = () => toggleCheckin(it.id, key);
+
+    grid.appendChild(cell);
+  }
+  wrap.appendChild(grid);
+
+  /* 脚注 + 补一段范围 */
+  const prefix = `${dCalY}-${pad(dCalM + 1)}`;
+  const inMonth = it.dates.filter(x => x.startsWith(prefix)).length;
+  const last = it.dates[it.dates.length - 1];
+
+  const foot = document.createElement('div');
+  foot.className = 'cal-foot';
+  foot.textContent = inMonth
+    ? `本月看了 ${inMonth} 天` + (last ? `，最近一次 ${last}` : '')
+    : '这个月还没打卡。点任意一天可以补记';
+  wrap.appendChild(foot);
+
+  // 追剧时一天一天点太累，给个区间批量补
+  const tools = document.createElement('div');
+  tools.className = 'cal-tools';
+
+  const rangeBtn = document.createElement('button');
+  rangeBtn.className = 'btn-ghost btn-sm';
+  rangeBtn.type = 'button';
+  rangeBtn.textContent = '补一段';
+  rangeBtn.onclick = () => {
+    const from = (prompt('从哪天开始？（YYYY-MM-DD）', last || t) || '').trim();
+    if (!from) return;
+    const to = (prompt('到哪天结束？（YYYY-MM-DD）', t) || '').trim();
+    if (!to) return;
+    if (!isDate(from) || !isDate(to)) { alert('日期格式得是 2026-08-26 这样'); return; }
+
+    const span = dateRange(from, to).filter(d => d <= t);
+    if (!span.length) { alert('这个区间里没有可记的日子（未来的日期记不了）'); return; }
+
+    const set = new Set(it.dates);
+    const before = set.size;
+    span.forEach(d => set.add(d));
+    it.dates = Array.from(set).sort();
+    if (it.status === '想看') it.status = '在看';
+    if (!persist()) return;
+    alert(`补了 ${set.size - before} 天`);
+    renderAll();
+    renderItem();
+  };
+
+  const clrBtn = document.createElement('button');
+  clrBtn.className = 'btn-ghost btn-sm';
+  clrBtn.type = 'button';
+  clrBtn.textContent = '清空打卡';
+  clrBtn.onclick = () => {
+    if (!it.dates.length) return;
+    if (!confirm(`清掉「${it.title}」的全部 ${it.dates.length} 天打卡？`)) return;
+    it.dates = [];
+    if (!persist()) return;
+    renderAll();
+    renderItem();
+  };
+
+  tools.append(rangeBtn, clrBtn);
+  wrap.appendChild(tools);
+
+  return wrap;
 }
 
 /* ============================================================
    表单：新增 / 编辑共用
+   ------------------------------------------------------------
+   日期栏是两个：只填前一个就是「一天看完」（电影），
+   两个都填就是「这段时间在看」（剧、书），保存时摊成打卡数组。
+   编辑已有记录时，日期栏默认显示首尾，改了就按新范围重算 ——
+   但如果范围没动，原来一天天点出来的断续打卡会原样保留，
+   不会被拉平成连续的一整段。
    ============================================================ */
 
 let editingId = null;
 let draft = blankDraft();
 
 function blankDraft() {
-  return {
-    title: '', cat: db.cats[0], date: today(),
-    status: '看完', stars: 0, note: '', cover: '', link: ''
-  };
+  return { cat: db.cats[0], status: '看完', stars: 0, link: '', dates: [] };
 }
 
 function renderCatPicker() {
@@ -230,7 +605,7 @@ function renderCatPicker() {
   add.className = 'chip ghost';
   add.textContent = '＋ 新分类';
   add.onclick = () => {
-    const name = (prompt('新分类叫什么？比如 播客、展览、游戏') || '').trim();
+    const name = (prompt('新分类叫什么？比如 展览、演出、游戏') || '').trim();
     if (!name) return;
     if (db.cats.includes(name)) { draft.cat = name; renderCatPicker(); return; }
     db.cats.push(name);
@@ -259,22 +634,38 @@ function renderStars() {
   });
 }
 
-function renderCoverPrev() {
-  fillCover($('f-cov-prev'), { title: $('f-title').value || draft.title, cover: draft.cover });
+/** 提示这次会记成几天，避免用户填完范围不知道会发生什么 */
+function renderDatesNote() {
+  const a = $('f-date').value;
+  const b = $('f-date2').value;
+  const el = $('f-dates-note');
+  el.className = 'hint-note';
+
+  if (!a && !b) { el.textContent = '不填就记今天。'; return; }
+  if (a && b) {
+    const n = dateRange(a, b).length;
+    el.textContent = n
+      ? `会在日历上标 ${n} 天。之后还能在详情里逐天增减。`
+      : '日期看着不太对，检查一下。';
+    return;
+  }
+  el.textContent = '只填一天 = 一天看完。跨好几天的剧或书可以填「到」，或者保存后在详情里逐天打卡。';
 }
 
 function syncForm() {
-  $('f-title').value = draft.title;
-  $('f-date').value  = draft.date;
-  $('f-note').value  = draft.note;
-  $('f-cover').value = draft.cover.startsWith('data:') ? '' : draft.cover;
-  $('f-cover').placeholder = draft.cover.startsWith('data:')
-    ? '已用上传的图片'
-    : '粘贴图片链接，或直接上传';
+  $('f-title').value = draft.title || '';
+  $('f-note').value  = draft.note || '';
+  $('f-link').value  = draft.link || '';
+
+  // 编辑时把已有打卡的首尾放进日期栏；单日就只填第一个
+  const ds = draft.dates || [];
+  $('f-date').value  = ds.length ? ds[0] : today();
+  $('f-date2').value = ds.length > 1 ? ds[ds.length - 1] : '';
+
   renderCatPicker();
   renderStatusPicker();
   renderStars();
-  renderCoverPrev();
+  renderDatesNote();
   $('sugg').style.display = 'none';
   $('sugg').innerHTML = '';
 }
@@ -296,8 +687,10 @@ function closeForm() {
   editingId = null;
 }
 
-$('add-open').onclick  = () => openForm(null);
-$('f-cancel').onclick  = closeForm;
+$('add-open').onclick = () => openForm(null);
+$('f-cancel').onclick = closeForm;
+$('f-date').oninput  = renderDatesNote;
+$('f-date2').oninput = renderDatesNote;
 
 $('f-stars').querySelectorAll('button[data-v]').forEach(b => {
   b.onclick = () => {
@@ -307,58 +700,46 @@ $('f-stars').querySelectorAll('button[data-v]').forEach(b => {
   };
 });
 $('f-star-clr').onclick = () => { draft.stars = 0; renderStars(); };
-
-$('f-cover').oninput = () => {
-  draft.cover = $('f-cover').value.trim();
-  renderCoverPrev();
-  // 豆瓣图直链在页面里显示不出来（防盗链），粘进来就顺手抓成本地图
-  if (/doubanio\.com/.test(draft.cover)) scheduleCache(draft.cover);
-};
-
-// 输入还在继续时不要急着发请求，停手 700ms 再抓
-let cacheTimer = null;
-function scheduleCache(url) {
-  clearTimeout(cacheTimer);
-  cacheTimer = setTimeout(async () => {
-    if (draft.cover !== url) return;
-    const prev = $('f-cover').placeholder;
-    $('f-cover').placeholder = '正在存封面…';
-    const data = await cacheImage(url);
-    if (draft.cover !== url) return;              // 期间改过就作废
-    if (data) {
-      draft.cover = data;
-      $('f-cover').value = '';
-      $('f-cover').placeholder = '已存下豆瓣封面';
-      renderCoverPrev();
-    } else {
-      $('f-cover').placeholder = prev;
-      alert('这张豆瓣图没抓下来（豆瓣有防盗链，得借第三方中转，时好时坏）。\n可以稍后再试，或者直接上传一张图。');
-    }
-  }, 700);
-}
-$('f-title').oninput = () => { draft.title = $('f-title').value; renderCoverPrev(); };
-$('f-cov-clr').onclick = () => {
-  draft.cover = '';
-  $('f-cover').value = '';
-  $('f-cover').placeholder = '粘贴图片链接，或直接上传';
-  renderCoverPrev();
-};
+$('f-link-clr').onclick = () => { $('f-link').value = ''; draft.link = ''; };
 
 $('f-save').onclick = () => {
   const title = $('f-title').value.trim();
   if (!title) { alert('至少写个标题'); $('f-title').focus(); return; }
 
+  const a = $('f-date').value;
+  const b = $('f-date2').value;
+  const old = editingId ? db.items.find(i => i.id === editingId) : null;
+
+  let dates;
+  if (a && b) {
+    // 范围跟原来一致就别动 —— 中间断续的打卡是手点出来的，不能被拉平
+    const od = old ? old.dates : [];
+    const sameSpan = od.length > 1 && od[0] === a && od[od.length - 1] === b;
+    dates = sameSpan ? od.slice() : dateRange(a, b);
+  } else if (a) {
+    // 单日：原来有多天打卡时只保证这天在里面，不清掉其它
+    const od = old ? old.dates : [];
+    if (od.length > 1) {
+      dates = Array.from(new Set(od.concat([a]))).sort();
+    } else {
+      dates = [a];
+    }
+  } else {
+    dates = [today()];
+  }
+
+  const link = $('f-link').value.trim();
+
   const rec = {
     id:     editingId || uid(),
     title,
     cat:    draft.cat,
-    date:   $('f-date').value || today(),
+    dates,
     status: draft.status,
     stars:  draft.stars,
     note:   $('f-note').value.trim(),
-    cover:  draft.cover,
-    link:   draft.link,
-    at:     editingId ? (db.items.find(i => i.id === editingId).at) : Date.now()
+    link,
+    at:     old ? old.at : Date.now()
   };
 
   if (editingId) {
@@ -372,53 +753,26 @@ $('f-save').onclick = () => {
   renderAll();
 };
 
-/* ---------- 本地上传：压成缩略图，别把 localStorage 撑爆 ---------- */
+/* ============================================================
+   豆瓣：拿链接，不拿图
+   ------------------------------------------------------------
+   suggest 接口不返回 CORS 头也不支持 JSONP，只能借公共代理。
+   这些是免费服务、随时可能挂，排成一列逐个试，全挂就退回手动
+   （点「去豆瓣搜」自己复制地址），不影响记录本身。
 
-$('f-upload').onclick = () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.onchange = () => {
-    const file = input.files && input.files[0];
-    if (!file) return;
+   以前还要额外抓封面图，豆瓣防盗链拦得厉害，成功率很低；
+   现在只要一个链接，代理拿到 JSON 就够了，链路短了一半。
+   ============================================================ */
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        // 列表里最大显示 58px 宽，200px 足够清晰，体积约 10-20KB
-        const W = 200;
-        const H = Math.round(img.height * (W / img.width));
-        const cv = document.createElement('canvas');
-        cv.width = W; cv.height = H;
-        cv.getContext('2d').drawImage(img, 0, 0, W, H);
-        draft.cover = cv.toDataURL('image/jpeg', 0.75);
-        $('f-cover').value = '';
-        $('f-cover').placeholder = '已用上传的图片';
-        renderCoverPrev();
-      };
-      img.onerror = () => alert('这个图片读不出来，换一张试试');
-      img.src = reader.result;
-    };
-    reader.onerror = () => alert('读取图片失败');
-    reader.readAsDataURL(file);
-  };
-  input.click();
-};
-
-/* ---------- 豆瓣：能自动就自动，不能就手动，绝不阻塞 ---------- */
-
-// 豆瓣两处都对网页不友好：
-//   1. suggest 接口不返回 CORS 头，也不支持 JSONP
-//   2. 封面图有防盗链，非豆瓣 referer 直接 403 / 418
-// 所以都得借公共代理。这些是免费服务、随时可能挂，排成一列逐个试，
-// 全挂就退回手动，不影响记录本身。
 const PROXIES = [
-  u => 'https://proxy.cors.sh/' + u,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
   u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
-  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u)
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://proxy.cors.sh/' + u
 ];
+
+/** 书籍走 book 库，其余走 movie 库 */
+const kindOf = cat => cat === '书籍' ? 'book' : 'movie';
 
 function doubanUrl(q, kind) {
   const host = kind === 'book' ? 'book.douban.com' : 'movie.douban.com';
@@ -446,94 +800,38 @@ async function fetchJSON(url) {
   return null;
 }
 
-/**
- * 把豆瓣封面抓下来转成本地 data URL。
- *
- * 直接把豆瓣图片地址写进 <img src> 是不行的 —— 实测无 referer 返 418，
- * 带我们自己域名的 referer 返 403，浏览器侧还会被 ORB 拦掉。
- * 但代理能拿到真实图片字节且带 CORS 头，所以这里抓完就地压成缩略图存下来。
- * 存成本地图后，以后显示不再依赖豆瓣和代理，图不会哪天突然全白。
- *
- * @returns {Promise<string|null>} data URL，失败返回 null
- */
-async function cacheImage(url) {
-  if (!url || url.startsWith('data:')) return url || null;
-
-  for (const wrap of PROXIES) {
-    try {
-      const res = await fetch(wrap(url), { signal: timeoutSignal(9000) });
-      if (!res.ok) continue;
-
-      const blob = await res.blob();
-      // 防盗链失败时豆瓣会回一个十几字节的空响应，按失败处理
-      if (!blob.type.startsWith('image/') || blob.size < 800) continue;
-
-      return await shrinkBlob(blob);
-    } catch { /* 换下一个代理 */ }
-  }
-  return null;
-}
-
-/** 缩到 200px 宽的 jpeg，控制 localStorage 占用（一张约 10-20KB） */
-function shrinkBlob(blob) {
-  return new Promise(resolve => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const W = 200;
-        const H = Math.max(1, Math.round(img.height * (W / img.width)));
-        const cv = document.createElement('canvas');
-        cv.width = W; cv.height = H;
-        cv.getContext('2d').drawImage(img, 0, 0, W, H);
-        try {
-          resolve(cv.toDataURL('image/jpeg', 0.75));
-        } catch { resolve(null); }
-      };
-      img.onerror = () => resolve(null);
-      img.src = fr.result;
-    };
-    fr.onerror = () => resolve(null);
-    fr.readAsDataURL(blob);
-  });
-}
-
 $('f-fetch').onclick = async () => {
   const q = $('f-title').value.trim();
-  if (!q) { alert('先写标题再找封面'); $('f-title').focus(); return; }
+  if (!q) { alert('先写标题再搜'); $('f-title').focus(); return; }
 
   const btn = $('f-fetch');
   btn.disabled = true;
   btn.textContent = '搜索中';
 
-  // 书籍走 book 库，其余走 movie 库
-  const kind = draft.cat === '书籍' ? 'book' : 'movie';
-  const raw = await fetchJSON(doubanUrl(q, kind));
+  const raw = await fetchJSON(doubanUrl(q, kindOf(draft.cat)));
 
   btn.disabled = false;
-  btn.textContent = '找封面';
+  btn.textContent = '找豆瓣';
 
   const box = $('sugg');
   box.style.display = 'block';
 
   if (!raw) {
     box.innerHTML =
-      '<p class="sugg-note">自动搜索没通（豆瓣不对网页开放，得借第三方中转，' +
-      '这些免费服务时好时坏）。可以点「去豆瓣搜」，复制封面图片地址贴到下面封面栏，' +
-      '也能存下来；或者直接上传一张图。不填封面也完全能用。</p>';
+      '<p class="hint-note">自动搜索没通（豆瓣不对网页开放，得借第三方中转，' +
+      '这些免费服务时好时坏）。点下面「去豆瓣搜」，找到条目后把地址栏的链接' +
+      '复制粘贴到「豆瓣链接」里，效果一样。不填链接也完全能用。</p>';
     return;
   }
 
-  const list = raw.slice(0, 6).map(r => ({
+  const list = raw.slice(0, 8).map(r => ({
     title: r.title || '',
-    cover: '',                            // 缩略图抓到后再填，先用排版封面占位
-    remote: r.img || r.pic || '',
-    sub:   [r.year, r.author_name, r.episode ? r.episode + ' 集' : ''].filter(Boolean).join(' · '),
-    link:  (r.url || '').split('?')[0]
+    sub: [r.year, r.author_name, r.episode ? r.episode + ' 集' : ''].filter(Boolean).join(' · '),
+    link: (r.url || '').split('?')[0]
   })).filter(r => r.title);
 
   if (!list.length) {
-    box.innerHTML = '<p class="sugg-note">没搜到，换个更完整的名字试试。</p>';
+    box.innerHTML = '<p class="hint-note">没搜到，换个更完整的名字试试。</p>';
     return;
   }
 
@@ -543,27 +841,17 @@ $('f-fetch').onclick = async () => {
 
   list.forEach(r => {
     const li = document.createElement('li');
-
-    const cov = document.createElement('div');
-    cov.className = 'cover';
-    fillCover(cov, r);
-
-    const txt = document.createElement('div');
     const t = document.createElement('div');
     t.className = 'sugg-t'; t.textContent = r.title;
     const s = document.createElement('div');
-    s.className = 'sugg-s'; s.textContent = r.sub;
-    txt.append(t, s);
+    s.className = 'sugg-s';
+    s.textContent = [r.sub, r.link ? '有链接' : '无链接'].filter(Boolean).join('  ·  ');
+    li.append(t, s);
 
-    li.append(cov, txt);
     li.onclick = () => {
-      draft.title = r.title;
-      draft.cover = r.cover;          // 已抓到就是 data URL，没抓到是空
-      draft.link  = r.link;
       $('f-title').value = r.title;
-      $('f-cover').value = '';
-      $('f-cover').placeholder = r.cover ? '已存下豆瓣封面' : '粘贴图片链接，或直接上传';
-      renderCoverPrev();
+      draft.title = r.title;
+      if (r.link) { $('f-link').value = r.link; draft.link = r.link; }
       box.style.display = 'none';
     };
 
@@ -572,30 +860,23 @@ $('f-fetch').onclick = async () => {
 
   box.appendChild(ul);
   const note = document.createElement('p');
-  note.className = 'sugg-note';
-  note.textContent = '点一条把名字填进去。封面在后台试着抓，抓到了小图会自己变出来；'
-    + '豆瓣防盗链挺严，抓不到属正常，用「上传图片」最稳。';
+  note.className = 'hint-note';
+  note.textContent = '点一条，名字和豆瓣链接一起填进去。';
   box.appendChild(note);
-
-  // 封面逐张抓，抓到哪张换哪张，不阻塞选择
-  list.forEach(async (r, i) => {
-    if (!r.remote) return;
-    const data = await cacheImage(r.remote);
-    if (!data) return;
-    r.cover = data;
-    const cell = ul.children[i];
-    if (cell) fillCover(cell.querySelector('.cover'), r);
-  });
 };
 
 $('f-douban').onclick = () => {
   const q = $('f-title').value.trim();
-  const kind = draft.cat === '书籍' ? 'book' : 'movie';
+  const kind = kindOf(draft.cat);
   const url = q
     ? `https://${kind}.douban.com/subject_search?search_text=${encodeURIComponent(q)}`
     : `https://${kind}.douban.com/`;
   window.open(url, '_blank', 'noopener');
 };
+
+/* ---------- 搜索 ---------- */
+
+$('search').oninput = () => { keyword = $('search').value.trim(); renderList(); };
 
 /* ---------- 分类管理 ---------- */
 
@@ -621,11 +902,23 @@ $('mng-cat').onclick = () => {
 };
 
 /* ============================================================
-   日历视图
+   月历视图：从某一天翻回那天都看了什么
+   ------------------------------------------------------------
+   一条记录可能占好几天，所以同一条会出现在它每个打卡日里 ——
+   追剧那一周每天都能看到它，这正是想要的效果。
    ============================================================ */
 
 let curY, curM, selDate = null;
 (() => { const d = new Date(); curY = d.getFullYear(); curM = d.getMonth(); })();
+
+/** 日期 → 当天看过的记录，日历和当日面板都查这张表 */
+function indexByDate() {
+  const map = {};
+  db.items.forEach(it => {
+    it.dates.forEach(d => { (map[d] = map[d] || []).push(it); });
+  });
+  return map;
+}
 
 function renderCal() {
   $('cal-title').textContent = `${curY} 年 ${curM + 1} 月`;
@@ -633,14 +926,9 @@ function renderCal() {
   const grid = $('grid');
   grid.innerHTML = '';
 
-  const first = new Date(curY, curM, 1);
-  const lead  = (first.getDay() + 6) % 7;              // 周一为一周起点
-  const days  = new Date(curY, curM + 1, 0).getDate();
-  const p = n => String(n).padStart(2, '0');
-
-  // 按日期分组，日历里只需要查
-  const byDate = {};
-  db.items.forEach(i => { (byDate[i.date] = byDate[i.date] || []).push(i); });
+  const byDate = indexByDate();
+  const lead = (new Date(curY, curM, 1).getDay() + 6) % 7;   // 周一为一周起点
+  const days = new Date(curY, curM + 1, 0).getDate();
 
   for (let i = 0; i < lead; i++) {
     const c = document.createElement('div');
@@ -649,7 +937,7 @@ function renderCal() {
   }
 
   for (let d = 1; d <= days; d++) {
-    const key = `${curY}-${p(curM + 1)}-${p(d)}`;
+    const key = `${curY}-${pad(curM + 1)}-${pad(d)}`;
     const list = byDate[key] || [];
 
     const cell = document.createElement('button');
@@ -701,18 +989,28 @@ function renderDayPanel(byDate) {
   const box = $('day-panel');
   box.innerHTML = '';
 
-  // 没选具体某天时，展示当月全部，按日期倒序
+  // 没选具体某天时，展示当月出现过的全部记录（去重）
   const isDay = !!selDate;
-  const rows = isDay
-    ? (byDate[selDate] || [])
-    : db.items
-        .filter(i => i.date.startsWith(`${curY}-${String(curM + 1).padStart(2, '0')}`))
-        .sort((a, b) => b.date.localeCompare(a.date) || b.at - a.at);
+  const prefix = `${curY}-${pad(curM + 1)}`;
+
+  let rows;
+  if (isDay) {
+    rows = byDate[selDate] || [];
+  } else {
+    const seen = new Set();
+    rows = [];
+    Object.keys(byDate).filter(d => d.startsWith(prefix)).sort().reverse()
+      .forEach(d => byDate[d].forEach(it => {
+        if (seen.has(it.id)) return;
+        seen.add(it.id);
+        rows.push(it);
+      }));
+  }
 
   const label = document.createElement('span');
   label.className = 'overline sec';
   label.textContent = isDay
-    ? selDate.replace(/-/g, ' / ')
+    ? selDate.replace(/-/g, ' / ') + `  ·  ${rows.length} 条`
     : `${curM + 1} 月 · ${rows.length} 条`;
   box.appendChild(label);
 
@@ -753,7 +1051,7 @@ $('export').onclick = () => store.exportFile();
 
 $('import').onclick = () => {
   store.importFile(data => {
-    const incoming = normalize(data);
+    const incoming = normalize(data);   // 老备份里的 date / cover 在这里一并迁移
     if (!incoming.items.length) { alert('备份里没有可导入的记录'); return; }
 
     let next;
@@ -763,12 +1061,31 @@ $('import').onclick = () => {
         '确定 = 合并（保留现有，去重后追加）\n取消 = 用备份完全替换'
       );
       if (merge) {
-        const seen = new Set(db.items.map(i => i.title + '|' + i.date));
-        const add = incoming.items.filter(i => !seen.has(i.title + '|' + i.date));
+        // 同名同分类算同一条，把两边的打卡日期并起来
+        const key = i => i.title + '|' + i.cat;
+        const mine = new Map(db.items.map(i => [key(i), i]));
+        let added = 0, merged = 0;
+
+        incoming.items.forEach(i => {
+          const hit = mine.get(key(i));
+          if (hit) {
+            const before = hit.dates.length;
+            hit.dates = Array.from(new Set(hit.dates.concat(i.dates))).sort();
+            if (!hit.note && i.note) hit.note = i.note;
+            if (!hit.link && i.link) hit.link = i.link;
+            if (!hit.stars && i.stars) hit.stars = i.stars;
+            if (hit.dates.length !== before) merged++;
+          } else {
+            db.items.push(i);
+            mine.set(key(i), i);
+            added++;
+          }
+        });
+
         const cats = db.cats.slice();
         incoming.cats.forEach(c => { if (!cats.includes(c)) cats.push(c); });
-        next = { cats, items: db.items.concat(add) };
-        alert(`已合并，新增 ${add.length} 条`);
+        next = { cats, items: db.items };
+        alert(`已合并：新增 ${added} 条，${merged} 条补了打卡日期`);
       } else {
         next = incoming;
         alert(`已替换为备份内容，共 ${incoming.items.length} 条`);
@@ -786,9 +1103,11 @@ $('import').onclick = () => {
 /* ---------- 启动 ---------- */
 
 function renderAll() {
+  renderStats();
   renderFilter();
   renderList();
   if ($('v-cal').classList.contains('on')) renderCal();
+  if ($('v-item').classList.contains('on') && openItemId) renderItem();
 }
 
 renderAll();
