@@ -29,9 +29,32 @@
   --line:       #D6CFC0;  /* 分隔线，暖调 */
   --line-soft:  #E0D9CA;
 
-  --serif: Georgia, 'Source Han Serif SC', 'Source Han Serif CN',
-           'Noto Serif CJK SC', 'STSong', 'SimSun', serif;
-  --mono:  'Consolas', 'Monaco', 'Courier New', monospace;
+  /* ⛔ 字体栈顺序是数字对齐的关键，别随手调，尤其别把 Georgia 挪到前面。
+
+     原来 Georgia 打头，它用旧式数字：3 4 5 7 9 沉到基线以下，
+     一串数字看着一上一下。用 fontTools 量各字体数字的 yMin
+     跨度（归一到 1000/em，越小越齐）：
+
+       Songti SC         19   ← 完全不下沉，且等宽
+       Times New Roman   14   （齐，但字形单薄）
+       Charter           55   （3/4/7/9 仍有可见下沉）
+       Georgia          181   ← 问题根源
+
+     Georgia 还没有 lnum 这个 OpenType 特性，所以
+     font-variant-numeric:lining-nums 对它是空操作 ——
+     只能换字体，CSS 开关救不回来。
+
+     为什么不用 New York：它在 macOS 上族名是「.New York」，
+     带前导点的隐藏系统字体，网页 CSS 引用不到；而 ui-serif
+     实测在 Chrome/macOS 上会掉到 PingFang（无衬线），不可靠。
+
+     所以让宋体同时接管中文和数字 —— 它本来就在栈里，数字最齐、
+     等宽，中英文风格也统一。Times New Roman 作兜底。 */
+  --serif: 'Songti SC', 'STSong', 'Source Han Serif SC',
+           'Source Han Serif CN', 'Noto Serif CJK SC', 'SimSun',
+           'Times New Roman', serif;
+  --mono:  'SF Mono', 'JetBrains Mono', 'Consolas', 'Monaco',
+           'Courier New', monospace;
 
   --radius:    14px;
   --radius-lg: 20px;
@@ -45,6 +68,21 @@ body {
   color:var(--text);
   min-height:100vh;
   -webkit-font-smoothing:antialiased;
+
+  /* 数字统一等高（lnum）+ 等宽（tnum）。
+     等高解决上下飘，等宽让每个数字占同样宽度 ——
+     日历格子、统计数、列表日期就能纵向对齐，不会因为 1 比 8 窄而歪。
+     字体没有对应特性时这两条是空操作，所以上面的字体栈才是根本。 */
+  font-variant-numeric:lining-nums tabular-nums;
+  -moz-font-feature-settings:"lnum" 1, "tnum" 1;
+  -webkit-font-feature-settings:"lnum" 1, "tnum" 1;
+  font-feature-settings:"lnum" 1, "tnum" 1;
+}
+
+/* 表单控件不继承 body 的字体设定，得单独给一遍 */
+input, textarea, select, button {
+  font-variant-numeric:lining-nums tabular-nums;
+  font-feature-settings:"lnum" 1, "tnum" 1;
 }
 
 /* 内容区：留白给得大方 */
