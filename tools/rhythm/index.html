@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>作息</title>
+<meta name="theme-color" content="#EFEAE0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<!-- 声明一下，否则浏览器会去要 /favicon.ico 报 404 -->
+<link rel="icon" href="../../icons/icon-192.png">
+
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  header { margin-bottom:34px; }
+  .head-top { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+  .head-top .overline { color:var(--text-sec); }
+
+  .sec-head {
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin:0 0 16px;
+  }
+  .sec-note {
+    font-family:var(--mono); font-size:11px; letter-spacing:1.2px;
+    color:var(--text-sec);
+  }
+
+  /* ===== 打卡区：一次点击完成记录，所以按钮给得大 ===== */
+  .punch-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  }
+  .punch {
+    position:relative; text-align:left;
+    background:var(--cream-deep);
+    border:1.5px solid transparent;
+    border-radius:var(--radius);
+    padding:16px 16px 15px;
+    cursor:pointer;
+    font-family:var(--serif);
+    transition:background .15s, border-color .15s;
+  }
+  .punch:hover  { background:#DCD5C5; }
+  .punch:active { background:#D4CBB8; }
+  /* 当前最该打的那个描橙边，省掉「该点哪个」的思考 */
+  .punch.suggest { border-color:var(--orange); }
+
+  .pk-label {
+    font-family:var(--mono);
+    font-size:10px; letter-spacing:1.6px; text-transform:uppercase;
+    color:var(--text-sec);
+    margin-bottom:8px;
+  }
+  .pk-name {
+    font-weight:900; font-size:15px; letter-spacing:-.3px;
+    margin-bottom:4px;
+  }
+  .pk-time {
+    font-weight:900; font-size:29px; line-height:1.15; letter-spacing:-1.2px;
+  }
+  .punch.done .pk-time  { color:var(--orange); }
+  .punch.blank .pk-time { color:var(--text-sec); opacity:.42; }
+
+  .punch-hint {
+    margin:12px 0 0;
+    font-family:var(--mono); font-size:11px; letter-spacing:.8px;
+    color:var(--text-sec);
+  }
+
+  /* ===== 编辑面板：改时间或清除，打卡按钮和历史行共用 ===== */
+  .editor {
+    margin-top:14px; padding:16px 16px 14px;
+    background:var(--cream-deep);
+    border-radius:var(--radius);
+  }
+  .editor[hidden] { display:none; }
+  .ed-head {
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .ed-date { font-family:var(--mono); font-size:11px; letter-spacing:1.4px; color:var(--text-sec); }
+  .ed-row {
+    display:flex; align-items:center; gap:10px;
+    padding:7px 0;
+  }
+  .ed-row .ed-name {
+    width:3.2em; flex-shrink:0;
+    font-weight:900; font-size:14px;
+  }
+  .ed-row input[type=time] {
+    flex:1; min-width:0;
+    font-family:var(--serif); font-size:15px; color:var(--text);
+    background:var(--cream);
+    border:1px solid transparent; border-radius:10px;
+    padding:8px 10px;
+  }
+  .ed-row input[type=time]:focus { outline:none; border-color:var(--orange); }
+  .ed-clear {
+    flex-shrink:0; background:none; border:none; cursor:pointer;
+    font-family:var(--mono); font-size:15px; color:var(--text-sec);
+    opacity:.5; padding:4px 6px;
+    transition:opacity .15s, color .15s;
+  }
+  .ed-clear:hover { opacity:1; color:var(--orange); }
+  .ed-foot {
+    display:flex; gap:10px; align-items:center;
+    margin-top:12px; padding-top:12px;
+    border-top:1px solid var(--line-soft);
+  }
+  .ed-tip {
+    font-family:var(--mono); font-size:10px; letter-spacing:.6px;
+    color:var(--text-sec); line-height:1.5;
+  }
+
+  /* ===== 均值：四个数并排，靠上下细线圈出来 ===== */
+  .stats {
+    display:grid; grid-template-columns:repeat(4, 1fr);
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .stat { padding:18px 4px 16px; }
+  .stat + .stat { border-left:1px solid var(--line-soft); padding-left:14px; }
+  .s-num {
+    font-weight:900; font-size:25px; line-height:1.1; letter-spacing:-1px;
+  }
+  .s-num.dim { color:var(--text-sec); opacity:.45; }
+  .s-unit { font-size:14px; font-weight:900; letter-spacing:0; }
+  .s-cap {
+    margin-top:7px;
+    font-family:var(--mono); font-size:10px; letter-spacing:1.1px;
+    color:var(--text-sec);
+  }
+  .summary {
+    margin-top:18px;
+    font-size:15px; line-height:1.7; color:var(--text-sec);
+  }
+  .summary b { color:var(--text); font-weight:900; }
+
+  /* ===== 条带图：一行一天，看时长也看时刻漂移 ===== */
+  .chart { margin-top:6px; }
+  .axis {
+    position:relative; height:14px;
+    margin-left:46px; margin-bottom:6px;
+  }
+  .axis span {
+    position:absolute; top:0;
+    font-family:var(--mono); font-size:9px; letter-spacing:.5px;
+    color:var(--text-sec); white-space:nowrap;
+  }
+  .crow {
+    display:flex; align-items:center; gap:8px;
+    height:25px;
+  }
+  .crow-date {
+    width:38px; flex-shrink:0;
+    font-family:var(--mono); font-size:10px; letter-spacing:.3px;
+    color:var(--text-sec);
+  }
+  .crow.is-today .crow-date { color:var(--orange); }
+  /* 横轴是 04:00 → 次日 12:00（32 小时），
+     这样整段睡眠能画在同一行里，不会被 0 点切断。 */
+  .track {
+    position:relative; flex:1; height:100%;
+    /* 每 4 小时一条淡竖线，共 8 段 */
+    background:repeating-linear-gradient(
+      to right,
+      var(--line-soft) 0 1px,
+      transparent 1px calc(100% / 8)
+    );
+  }
+  /* 0 点那条画深一点，方便判断是否过了半夜 */
+  .mid {
+    position:absolute; top:2px; bottom:2px; width:1px;
+    background:var(--line);
+  }
+  .seg {
+    position:absolute; top:8px; height:9px; border-radius:2px;
+  }
+  .seg-sleep   { background:#BDB4A2; }
+  .seg-work    { background:var(--orange); }
+  /* 还没结束的段（今晚刚睡下）用半透明表示未完成 */
+  .seg.open    { opacity:.4; }
+  .mark-wake {
+    position:absolute; top:4px; width:2px; height:17px;
+    background:var(--ink);
+  }
+  .legend {
+    display:flex; gap:16px; align-items:center;
+    margin:14px 0 0 46px;
+    font-family:var(--mono); font-size:10px; letter-spacing:.8px;
+    color:var(--text-sec);
+  }
+  .legend i {
+    display:inline-block; width:14px; height:8px;
+    border-radius:2px; margin-right:6px; vertical-align:middle;
+  }
+  .legend .lg-wake i { width:2px; height:12px; background:var(--ink); }
+
+  /* ===== 历史 ===== */
+  .hlist { list-style:none; }
+  .hrow {
+    display:flex; align-items:center; gap:10px;
+    padding:13px 2px;
+    border-bottom:1px solid var(--line-soft);
+    cursor:pointer;
+  }
+  .hrow:first-child { border-top:1px solid var(--line-soft); }
+  .hrow:hover { background:rgba(0,0,0,.015); }
+  .h-date {
+    width:52px; flex-shrink:0;
+    font-family:var(--mono); font-size:11px; letter-spacing:.4px;
+    color:var(--text-sec);
+  }
+  .hrow.is-today .h-date { color:var(--orange); }
+  .h-times {
+    flex:1; min-width:0;
+    font-size:14px; letter-spacing:-.2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .h-times .sep { color:var(--text-sec); opacity:.45; margin:0 5px; }
+  .h-times .miss { color:var(--text-sec); opacity:.4; }
+  .h-dur {
+    flex-shrink:0;
+    font-family:var(--mono); font-size:11px; letter-spacing:.4px;
+    color:var(--text-sec);
+  }
+
+  .empty {
+    background:var(--cream-deep);
+    border-radius:var(--radius-lg);
+    padding:52px 30px; text-align:center;
+    color:var(--text-sec); font-size:15px; line-height:1.8;
+  }
+
+  .linkbtn {
+    background:none; border:none; cursor:pointer;
+    font-family:var(--mono); font-size:11px; letter-spacing:1.2px;
+    color:var(--text-sec);
+    transition:color .15s;
+  }
+  .linkbtn:hover { color:var(--orange); }
+
+  .btn-ghost {
+    font-family:var(--serif);
+    font-weight:900; font-size:14px;
+    color:var(--text);
+    background:transparent;
+    border:1.5px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 18px; cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .btn-ghost:hover { border-color:var(--orange); color:var(--orange); }
+
+  .block { margin-top:44px; }
+
+  .backup { margin-top:48px; padding-top:22px; border-top:1px solid var(--line-soft); }
+  .backup-head { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
+  .backup-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .backup-note { margin-top:12px; font-size:13px; line-height:1.65; color:var(--text-sec); }
+
+  @media (max-width:480px) {
+    .wrap { padding-left:22px; padding-right:22px; }
+    .title-display { font-size:34px; }
+    .stats { grid-template-columns:1fr 1fr; }
+    .stat:nth-child(3) { border-left:none; padding-left:4px; }
+    .stat:nth-child(3), .stat:nth-child(4) { border-top:1px solid var(--line-soft); }
+    .pk-time { font-size:26px; }
+    .h-times { font-size:13px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="head-top">
+      <a class="back" href="../../" aria-label="返回工作台">←</a>
+      <div class="overline">Rhythm</div>
+    </div>
+    <h1 class="title-display">作<span class="orange">息</span></h1>
+  </header>
+
+  <!-- 打卡：全页最上，打开就点 -->
+  <section>
+    <div class="sec-head">
+      <div class="overline sec">Today</div>
+      <div class="sec-note" id="today-label"></div>
+    </div>
+    <div class="punch-grid" id="punch-grid"></div>
+    <p class="punch-hint" id="punch-hint"></p>
+
+    <div class="editor" id="editor" hidden></div>
+  </section>
+
+  <!-- 均值 -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="overline sec">Average</div>
+      <div class="sec-note">近 7 天</div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <p class="summary" id="summary"></p>
+  </section>
+
+  <!-- 条带图 -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="overline sec">Pattern</div>
+      <button class="linkbtn" id="span-toggle" type="button">近 14 天</button>
+    </div>
+    <div class="chart" id="chart"></div>
+  </section>
+
+  <!-- 历史 -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="overline sec">Log</div>
+      <div class="sec-note" id="log-count"></div>
+    </div>
+    <ul class="hlist" id="hlist"></ul>
+    <div class="empty" id="empty">还没有记录<br>在上面点一下就开始</div>
+    <div style="margin-top:18px">
+      <button class="linkbtn" id="more" type="button" hidden>显示全部</button>
+    </div>
+  </section>
+
+  <section class="backup">
+    <div class="backup-head">
+      <span class="card-mini-icon" style="font-size:17px">⇄</span>
+      <span class="overline sec">Backup</span>
+    </div>
+    <div class="backup-row">
+      <button class="btn-ghost" id="export" type="button">导出备份</button>
+      <button class="btn-ghost" id="import" type="button">导入备份</button>
+    </div>
+    <p class="backup-note">
+      清除浏览器数据、删掉这个应用、或者换手机，本地数据都会丢。
+      建议定期导出一份存到网盘或发给自己，换设备时导入即可恢复。
+    </p>
+  </section>
+
+</div>
+
+<script src="../../storage.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
