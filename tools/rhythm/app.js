@@ -23,8 +23,17 @@
   const WIN_START = 4 * 60;        // 条带图左端 04:00
   const WIN_END = 36 * 60;         // 条带图右端 次日 12:00
   const WIN_SPAN = WIN_END - WIN_START;   // 32 小时
-  const AVG_DAYS = 7;              // 均值窗口
   const LOG_FOLD = 14;             // 历史默认显示条数
+
+  /* 统计周期。每种都给出「当前区间」和「用来对比的上一个区间」，
+     所以对比逻辑只写一遍，不用为周/月各写一套。
+     rolling 是默认项 —— 刚开始用的时候本周可能只有一两天，
+     滚动 7 天更有参考价值。 */
+  const PERIODS = [
+    { key: 'rolling', name: '近 7 天', unit: 'day',  prevName: '前 7 天' },
+    { key: 'week',    name: '本周',    unit: 'week', prevName: '上周' },
+    { key: 'month',   name: '本月',    unit: 'month', prevName: '上月' }
+  ];
 
   // 打卡项的顺序就是一天的推进顺序，「建议下一个」靠它判断
   const KINDS = [
@@ -91,6 +100,55 @@
   const mdLabel = k => k.slice(5).replace('-', '/');
   const weekOf = k => '日一二三四五六'[dparse(k).getDay()];
 
+  /** 该日期所在周的周一（周一为一周之始，符合国内习惯） */
+  function mondayOf(k) {
+    const d = dparse(k);
+    const off = (d.getDay() + 6) % 7;    // 周一=0 … 周日=6
+    d.setDate(d.getDate() - off);
+    return dkey(d);
+  }
+
+  /** 列出 [from, to] 之间的所有日期 key，含两端 */
+  function rangeKeys(from, to) {
+    const out = [];
+    let cur = from;
+    // 用日期推进而不是算天数差，自动躲开夏令时和月末长度问题
+    while (cur <= to) { out.push(cur); cur = shiftKey(cur, 1); }
+    return out;
+  }
+
+  /**
+   * 按周期算出「本期」和「上期」的日期区间。
+   * 上期一律取完整的上一个自然周期，不做「对齐到今天」的截断 ——
+   * 月初比较时确实会拿不满的本月对满的上月，但截断更难解释，
+   * 而且摘要里已经标了各自天数。
+   */
+  function periodRange(periodKey, todayKey) {
+    if (periodKey === 'week') {
+      const cs = mondayOf(todayKey);
+      const ps = shiftKey(cs, -7);
+      return {
+        cur: { start: cs, end: todayKey },
+        prev: { start: ps, end: shiftKey(cs, -1) }
+      };
+    }
+    if (periodKey === 'month') {
+      const d = dparse(todayKey);
+      const cs = dkey(new Date(d.getFullYear(), d.getMonth(), 1));
+      const pd = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+      const ps = dkey(pd);
+      return {
+        cur: { start: cs, end: todayKey },
+        prev: { start: ps, end: shiftKey(cs, -1) }
+      };
+    }
+    // rolling：今天往回 7 天，对比再往前 7 天
+    return {
+      cur: { start: shiftKey(todayKey, -6), end: todayKey },
+      prev: { start: shiftKey(todayKey, -13), end: shiftKey(todayKey, -7) }
+    };
+  }
+
   /* ---------- 数据读写 ---------- */
 
   // 只接受对象，导入了结构不对的数据也不至于崩
@@ -100,6 +158,7 @@
   let logAll = false;
   let chartDays = 14;
   let editKey = null;      // 编辑面板正在编哪一天，null = 收起
+  let period = 'rolling';  // 统计周期，见 PERIODS
 
   function persist() { store.save(data); }
 
@@ -163,8 +222,13 @@
           setPunch(today, k.key, nowPoint().min);
         } else {
           // 已经有值，点它是想改 —— 打开编辑面板而不是覆盖
-          editKey = (editKey === today) ? null : today;
-          renderAll();
+          if (editKey === today) closeEditor();
+          else {
+            openEditor(today);
+            // 打开后把焦点直接送到被点的那一项，少一次点击
+            const target = edInputs && edInputs[k.key];
+            if (target) target.focus();
+          }
         }
       };
       grid.appendChild(btn);
@@ -184,68 +248,127 @@
     void nowMin;
   }
 
-  function setPunch(key, kind, min) {
+  /* keepEditor=true 表示改动来自编辑面板自己，此时只刷新面板之外的部分。
+     不这么做的话，写一次数据就重建一次面板，iOS 滚轮会被拔掉。 */
+  function setPunch(key, kind, min, opt = {}) {
     if (!data[key]) data[key] = {};
     data[key][kind] = min;
     persist();
-    renderAll();
+    opt.keepEditor ? renderExceptEditor() : renderAll();
   }
 
-  function clearPunch(key, kind) {
+  function clearPunch(key, kind, opt = {}) {
     if (!data[key]) return;
     delete data[key][kind];
     if (!KINDS.some(k => data[key][k.key] != null)) delete data[key];
     persist();
-    renderAll();
+    opt.keepEditor ? renderExceptEditor() : renderAll();
   }
 
   /* ---------- 编辑面板 ---------- */
 
-  function renderEditor() {
-    const box = document.getElementById('editor');
-    if (!editKey) { box.hidden = true; box.innerHTML = ''; return; }
+  /* ⛔ 编辑面板必须「建一次就不动」，别改回每次 renderAll 都重建。
 
-    const rec = dayOf(editKey) || {};
+     踩过的坑（2026-08-31 修）：原来 renderEditor() 每次都
+     `box.innerHTML = ...` 整块重建，而 input 的 change 里会调 renderAll。
+     iOS 的时间滚轮**在拖动过程中就连续 fire change**，于是手指还没松开，
+     输入框已经被连根拔掉重建 —— 表现是「拖一下选择器就没了」。
+
+     现在的做法：
+       openEditor()  只在打开/换天时建一次 DOM，建好就不碰
+       syncEditor()  只在外部数据变化时回填 value，且跳过正在编辑的那个框
+     数据写入走 setPunch(..., {keepEditor:true})，不重建面板。 */
+
+  let edInputs = null;      // { wake: inputEl, ... }，面板打开期间有效
+
+  function openEditor(key) {
+    const box = document.getElementById('editor');
+    editKey = key;
     box.hidden = false;
     box.innerHTML = `
       <div class="ed-head">
         <span class="overline sec">Edit</span>
-        <span class="ed-date">${mdLabel(editKey)} 周${weekOf(editKey)}</span>
+        <span class="ed-date"></span>
       </div>
       <div class="ed-rows"></div>
       <div class="ed-foot">
         <button class="btn-ghost" type="button" data-close>收起</button>
         <span class="ed-tip">下班 / 睡觉 填 00:00–03:59 视为跨到次日凌晨</span>
       </div>`;
+    box.querySelector('.ed-date').textContent =
+      `${mdLabel(key)} 周${weekOf(key)}`;
 
     const rows = box.querySelector('.ed-rows');
+    edInputs = {};
+
     KINDS.forEach(k => {
       const row = document.createElement('div');
       row.className = 'ed-row';
       row.innerHTML = `
         <span class="ed-name"></span>
-        <input type="time" value="${rec[k.key] != null ? fmt(rec[k.key]) : ''}">
+        <input type="time" step="60">
         <button class="ed-clear" type="button" title="清除">×</button>`;
       row.querySelector('.ed-name').textContent = k.name;
 
       const input = row.querySelector('input');
-      input.onchange = () => {
-        if (!input.value) { clearPunch(editKey, k.key); return; }
+      edInputs[k.key] = input;
+
+      const commit = () => {
+        if (!input.value) {
+          clearPunch(editKey, k.key, { keepEditor: true });
+          return;
+        }
         const [h, mm] = input.value.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(mm)) return;   // 滚轮拖到半途可能是空值
         let min = h * 60 + mm;
         // 下班/睡觉填了凌晨的钟点，意思是熬到了次日
         if (CAN_CROSS[k.key] && min < DAY_CUT) min += 1440;
-        setPunch(editKey, k.key, min);
+        setPunch(editKey, k.key, min, { keepEditor: true });
       };
 
-      row.querySelector('.ed-clear').onclick = () => clearPunch(editKey, k.key);
+      // input 事件比 change 更早也更密，节流一下避免每一格滚动都写一次 localStorage
+      let timer = null;
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(commit, 260);
+      });
+      // change/blur 立即落地，防止节流还没触发用户就收起了面板
+      input.addEventListener('change', () => { clearTimeout(timer); commit(); });
+      input.addEventListener('blur',   () => { clearTimeout(timer); commit(); });
+
+      row.querySelector('.ed-clear').onclick = () => {
+        input.value = '';
+        clearPunch(editKey, k.key, { keepEditor: true });
+      };
+
       rows.appendChild(row);
     });
 
-    box.querySelector('[data-close]').onclick = () => {
-      editKey = null;
-      renderAll();
-    };
+    box.querySelector('[data-close]').onclick = () => closeEditor();
+    syncEditor();
+  }
+
+  function closeEditor() {
+    const box = document.getElementById('editor');
+    editKey = null;
+    edInputs = null;
+    box.hidden = true;
+    box.innerHTML = '';
+    renderAll();
+  }
+
+  /** 把数据回填到已有的输入框里，不重建 DOM */
+  function syncEditor() {
+    if (!editKey || !edInputs) return;
+    const rec = dayOf(editKey) || {};
+    KINDS.forEach(k => {
+      const input = edInputs[k.key];
+      if (!input) return;
+      // 正在操作的那个框绝对不能动，否则 iOS 滚轮会被打断
+      if (document.activeElement === input) return;
+      const want = rec[k.key] != null ? fmt(rec[k.key]) : '';
+      if (input.value !== want) input.value = want;
+    });
   }
 
   /* ---------- 均值 ---------- */
@@ -254,55 +377,190 @@
     ? arr.reduce((a, b) => a + b, 0) / arr.length
     : null;
 
-  function collectAvg() {
-    // 从今天往回数 AVG_DAYS 个逻辑日
-    const today = nowPoint().key;
-    const keys = [];
-    for (let i = 0; i < AVG_DAYS; i++) keys.push(shiftKey(today, -i));
-
+  /** 统计一个日期区间。四项各自独立算，缺哪项只是那项为 null。 */
+  function collectRange(start, end) {
     const wake = [], sleep = [], sdur = [], wdur = [];
-    keys.forEach(k => {
+    let logged = 0;
+
+    rangeKeys(start, end).forEach(k => {
       const r = dayOf(k);
+      if (r && KINDS.some(x => r[x.key] != null)) logged++;
       if (r && r.wake != null) wake.push(r.wake);
       if (r && r.sleep != null) sleep.push(r.sleep);
       const s = sleepDur(k); if (s != null) sdur.push(s);
       const w = workDur(k);  if (w != null) wdur.push(w);
     });
+
     return {
       wake: avg(wake), sleep: avg(sleep),
       sdur: avg(sdur), wdur: avg(wdur),
+      logged,
+      span: rangeKeys(start, end).length,
       n: { wake: wake.length, sleep: sleep.length, sdur: sdur.length, wdur: wdur.length }
     };
   }
 
-  function renderStats() {
-    const a = collectAvg();
-    const cells = [
-      { v: a.wake  != null ? fmt(Math.round(a.wake))  : null, cap: '平均起床' },
-      { v: a.sleep != null ? fmt(Math.round(a.sleep)) : null, cap: '平均入睡' },
-      { v: a.sdur  != null ? fmtDur(a.sdur)           : null, cap: '平均睡眠' },
-      { v: a.wdur  != null ? fmtDur(a.wdur)           : null, cap: '平均在岗' }
-    ];
+  /* 四项指标的元信息集中在这里，渲染和摘要都读它，避免两处各写一遍。
+     good 决定环比箭头的颜色语义：
+       'less'  —— 数值变小是好事（起床早、入睡早、在岗短）
+       'more'  —— 数值变大是好事（睡得久）
+     注意起床/入睡是「时刻」，早一点是变小；睡眠/在岗是「时长」。 */
+  const METRICS = [
+    { key: 'wake',  cap: '平均起床', kind: 'clock', good: 'less' },
+    { key: 'sleep', cap: '平均入睡', kind: 'clock', good: 'less' },
+    { key: 'sdur',  cap: '平均睡眠', kind: 'dur',   good: 'more' },
+    { key: 'wdur',  cap: '平均在岗', kind: 'dur',   good: 'less' }
+  ];
 
-    document.getElementById('stats').innerHTML = cells.map(c => `
-      <div class="stat">
-        <div class="s-num${c.v ? '' : ' dim'}">${c.v || '--:--'}</div>
-        <div class="s-cap">${c.cap}</div>
-      </div>`).join('');
+  const showVal = (m, v) => v == null
+    ? null
+    : (m.kind === 'clock' ? fmt(Math.round(v)) : fmtDur(v));
+
+  /**
+   * 差值 → { text:'30m', dir:-1 }，绝对值 < 3 分钟当持平。
+   * text 里**不带正负号** —— 方向由调用方的箭头表达，
+   * 否则会渲染成「↓−30m」这种符号重复。
+   */
+  function fmtDelta(d) {
+    const a = Math.abs(Math.round(d));
+    if (a < 3) return { text: '持平', dir: 0 };
+    const body = a >= 60 ? `${Math.floor(a / 60)}h${pad(a % 60)}` : `${a}m`;
+    return { text: body, dir: d > 0 ? 1 : -1 };
+  }
+
+  function renderStats() {
+    const today = nowPoint().key;
+    const p = PERIODS.find(x => x.key === period) || PERIODS[0];
+    const { cur, prev } = periodRange(p.key, today);
+    const A = collectRange(cur.start, cur.end);
+    const B = collectRange(prev.start, prev.end);
+
+    // 区间说明放在标题右侧，让「这些数是哪几天的」一目了然
+    document.getElementById('range-note').textContent =
+      `${mdLabel(cur.start)}–${mdLabel(cur.end)} · 记了 ${A.logged} 天`;
+
+    document.getElementById('stats').innerHTML = METRICS.map(m => {
+      const now = showVal(m, A[m.key]);
+      const was = showVal(m, B[m.key]);
+
+      // 两期都有数才谈对比
+      let cmp = '<div class="s-cmp empty">—</div>';
+      if (A[m.key] != null && B[m.key] != null) {
+        const d = fmtDelta(A[m.key] - B[m.key]);
+        let cls = 'flat';
+        if (d.dir !== 0) {
+          const better = (m.good === 'less') ? d.dir < 0 : d.dir > 0;
+          cls = better ? 'up' : 'down';
+        }
+        const arrow = d.dir === 0 ? '' : (d.dir > 0 ? '↑' : '↓');
+        cmp = `<div class="s-cmp ${cls}">${arrow}${d.text}</div>`;
+      } else if (B[m.key] != null) {
+        cmp = `<div class="s-cmp empty">${p.prevName} ${was}</div>`;
+      }
+
+      return `
+        <div class="stat">
+          <div class="s-num${now ? '' : ' dim'}">${now || '--:--'}</div>
+          <div class="s-cap">${m.cap}</div>
+          ${cmp}
+        </div>`;
+    }).join('');
+
+    renderCompareTable(p, A, B, cur, prev);
+    renderSummary(p, A, B);
+  }
+
+  /** 两期并排的小表，给想看具体数字的时候用 */
+  function renderCompareTable(p, A, B, cur, prev) {
+    const box = document.getElementById('compare');
+
+    if (!B.logged && !A.logged) {
+      box.innerHTML = '';
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+
+    const row = m => {
+      const a = showVal(m, A[m.key]);
+      const b = showVal(m, B[m.key]);
+      let d = '<span class="dim">—</span>';
+      if (A[m.key] != null && B[m.key] != null) {
+        const f = fmtDelta(A[m.key] - B[m.key]);
+        let cls = 'flat';
+        if (f.dir !== 0) {
+          const better = (m.good === 'less') ? f.dir < 0 : f.dir > 0;
+          cls = better ? 'up' : 'down';
+        }
+        d = `<span class="${cls}">${f.dir === 0 ? '' : (f.dir > 0 ? '↑' : '↓')}${f.text}</span>`;
+      }
+      return `<tr>
+        <th>${m.cap.replace('平均', '')}</th>
+        <td>${a || '<span class="dim">--</span>'}</td>
+        <td>${b || '<span class="dim">--</span>'}</td>
+        <td class="c-delta">${d}</td>
+      </tr>`;
+    };
+
+    box.innerHTML = `
+      <table class="ctab">
+        <thead>
+          <tr>
+            <th></th>
+            <td>${p.name}<i>${A.logged}天</i></td>
+            <td>${p.prevName}<i>${B.logged}天</i></td>
+            <td>对比</td>
+          </tr>
+        </thead>
+        <tbody>${METRICS.map(row).join('')}</tbody>
+      </table>`;
+  }
+
+  function renderSummary(p, A, B) {
+    const el = document.getElementById('summary');
+
+    if (!A.logged) {
+      el.innerHTML = `${p.name}还没有记录，打几次卡这里就会出现平均值。`;
+      return;
+    }
 
     // 一句话把四个数串起来，比让用户自己看数舒服
     const parts = [];
-    if (a.sdur != null) {
-      const tag = a.sdur >= 480 ? '睡得足' : a.sdur >= 420 ? '基本够' : '偏少';
-      parts.push(`平均睡 <b>${fmtDurPlain(a.sdur)}</b>，${tag}`);
+    if (A.sdur != null) {
+      const tag = A.sdur >= 480 ? '睡得足' : A.sdur >= 420 ? '基本够' : '偏少';
+      parts.push(`平均睡 <b>${fmtDurPlain(A.sdur)}</b>，${tag}`);
     }
-    if (a.wdur != null) parts.push(`在岗 <b>${fmtDurPlain(a.wdur)}</b>`);
-    if (a.sleep != null && a.wake != null) {
-      parts.push(`作息大致 <b>${fmt(Math.round(a.sleep))}</b> 睡 <b>${fmt(Math.round(a.wake))}</b> 起`);
+    if (A.wdur != null) parts.push(`在岗 <b>${fmtDurPlain(A.wdur)}</b>`);
+    if (A.sleep != null && A.wake != null) {
+      parts.push(`作息大致 <b>${fmt(Math.round(A.sleep))}</b> 睡 <b>${fmt(Math.round(A.wake))}</b> 起`);
     }
-    document.getElementById('summary').innerHTML = parts.length
-      ? `近 ${AVG_DAYS} 天${parts.join('，')}。`
-      : '记满一天四项，这里就会出现平均值。';
+
+    let text = parts.length
+      ? `${p.name}${parts.join('，')}。`
+      : `${p.name}记了 ${A.logged} 天，还凑不出完整的平均值。`;
+
+    // 跟上期的差异单独说一句，只挑变化最明显的一项，不然太啰嗦
+    if (B.logged) {
+      const moved = METRICS
+        .filter(m => A[m.key] != null && B[m.key] != null)
+        .map(m => ({ m, d: A[m.key] - B[m.key] }))
+        .filter(x => Math.abs(x.d) >= 3)
+        .sort((x, y) => Math.abs(y.d) - Math.abs(x.d))[0];
+
+      if (moved) {
+        const f = fmtDelta(moved.d);
+        const better = (moved.m.good === 'less') ? moved.d < 0 : moved.d > 0;
+        const word = moved.m.kind === 'clock'
+          ? (moved.d < 0 ? '早了' : '晚了')
+          : (moved.d < 0 ? '少了' : '多了');
+        text += ` 比${p.prevName}${moved.m.cap.replace('平均', '')}${word}` +
+          ` <b>${f.text}</b>${better ? '，是往好的方向' : ''}。`;
+      } else {
+        text += ` 跟${p.prevName}基本持平。`;
+      }
+    }
+
+    el.innerHTML = text;
   }
 
   /* ---------- 条带图 ---------- */
@@ -433,12 +691,10 @@
         ].filter(Boolean).join(' · ')}</div>`;
 
       li.onclick = () => {
-        editKey = (editKey === k) ? null : k;
-        renderAll();
-        if (editKey) {
-          document.getElementById('editor')
-            .scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if (editKey === k) { closeEditor(); return; }
+        openEditor(k);
+        document.getElementById('editor')
+          .scrollIntoView({ behavior: 'smooth', block: 'center' });
       };
       listEl.appendChild(li);
     });
@@ -492,13 +748,35 @@
 
   /* ---------- 启动 ---------- */
 
-  function renderAll() {
+  /** 面板之外的部分。编辑面板自己触发的改动走这条，避免拔掉输入框 */
+  function renderExceptEditor() {
     renderPunch();
-    renderEditor();
     renderStats();
     renderChart();
     renderLog();
+    syncEditor();     // 只回填 value，不重建
   }
+
+  function renderAll() {
+    renderExceptEditor();
+  }
+
+  // 周期切换：段落式分段控件，点一下换周期
+  const segBox = document.getElementById('period-seg');
+  PERIODS.forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pseg-btn' + (p.key === period ? ' on' : '');
+    b.dataset.k = p.key;
+    b.textContent = p.name;
+    b.onclick = () => {
+      period = p.key;
+      segBox.querySelectorAll('.pseg-btn').forEach(x =>
+        x.classList.toggle('on', x.dataset.k === period));
+      renderStats();
+    };
+    segBox.appendChild(b);
+  });
 
   document.getElementById('more').onclick = () => {
     logAll = !logAll;

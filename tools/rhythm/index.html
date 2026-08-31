@@ -112,14 +112,75 @@
     color:var(--text-sec); line-height:1.5;
   }
 
+  /* ===== 周期切换：分段控件 =====
+     ⛔ 别把类名改成 .seg —— 条带图里的时间段已经占用了 .seg，
+     重名会让这里继承 position:absolute 和 height:9px，按钮塌成一条。 */
+  .pseg {
+    display:flex; gap:4px;
+    margin-bottom:2px; padding:4px;
+    background:var(--cream-deep);
+    border-radius:var(--radius);
+  }
+  .pseg-btn {
+    flex:1; padding:11px 4px;
+    font-family:var(--serif); font-weight:900; font-size:14px;
+    color:var(--text-sec);
+    background:transparent; border:none; border-radius:10px;
+    cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .pseg-btn.on { background:var(--cream); color:var(--text); }
+
   /* ===== 均值：四个数并排，靠上下细线圈出来 ===== */
   .stats {
     display:grid; grid-template-columns:repeat(4, 1fr);
     border-top:1px solid var(--line);
     border-bottom:1px solid var(--line);
+    margin-top:14px;
   }
   .stat { padding:18px 4px 16px; }
   .stat + .stat { border-left:1px solid var(--line-soft); padding-left:14px; }
+
+  /* 环比：跟在指标下面，箭头 + 差值 */
+  .s-cmp {
+    margin-top:6px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.4px;
+  }
+  /* 橙色=往好的方向，深灰=往差的方向。
+     不引入红/绿，整套设计只有一个强调色。 */
+  .s-cmp.up    { color:var(--orange); }
+  .s-cmp.down  { color:var(--text); opacity:.75; }
+  .s-cmp.flat,
+  .s-cmp.empty { color:var(--text-sec); opacity:.5; }
+
+  /* ===== 对比表 ===== */
+  .ctab {
+    width:100%; margin-top:24px;
+    border-collapse:collapse;
+    font-size:14px;
+  }
+  .ctab thead td {
+    padding:0 0 10px;
+    font-family:var(--mono); font-size:10px; letter-spacing:1px;
+    color:var(--text-sec); text-align:right;
+  }
+  .ctab thead td i {
+    display:block; margin-top:3px;
+    font-style:normal; font-size:9px; opacity:.6;
+  }
+  .ctab th {
+    text-align:left; font-weight:900; font-size:14px;
+    padding:11px 0; white-space:nowrap;
+  }
+  .ctab tbody tr { border-top:1px solid var(--line-soft); }
+  .ctab td {
+    padding:11px 0; text-align:right;
+    font-size:15px; letter-spacing:-.2px;
+  }
+  .ctab .c-delta { font-family:var(--mono); font-size:11px; letter-spacing:.4px; }
+  .ctab .up   { color:var(--orange); }
+  .ctab .down { color:var(--text); opacity:.75; }
+  .ctab .flat, .ctab .dim { color:var(--text-sec); opacity:.5; }
   .s-num {
     font-weight:900; font-size:25px; line-height:1.1; letter-spacing:-1px;
   }
@@ -267,6 +328,9 @@
     .stat:nth-child(3), .stat:nth-child(4) { border-top:1px solid var(--line-soft); }
     .pk-time { font-size:26px; }
     .h-times { font-size:13px; }
+    .pseg-btn { font-size:13px; }
+    .ctab { font-size:13px; }
+    .ctab td { font-size:14px; }
   }
 </style>
 </head>
@@ -293,14 +357,16 @@
     <div class="editor" id="editor" hidden></div>
   </section>
 
-  <!-- 均值 -->
+  <!-- 均值 + 环比 -->
   <section class="block">
     <div class="sec-head">
       <div class="overline sec">Average</div>
-      <div class="sec-note">近 7 天</div>
+      <div class="sec-note" id="range-note"></div>
     </div>
+    <div class="pseg" id="period-seg"></div>
     <div class="stats" id="stats"></div>
     <p class="summary" id="summary"></p>
+    <div id="compare" hidden></div>
   </section>
 
   <!-- 条带图 -->
