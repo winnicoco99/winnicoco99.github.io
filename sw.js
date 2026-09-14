@@ -16,7 +16,7 @@
    见 needsRevalidate() 和 install 里的 `cache:'reload'`。
    光把 VERSION +1 解决不了这个问题。
 */
-const VERSION = 'v14';
+const VERSION = 'v15';
 const CACHE = 'workbench-' + VERSION;
 
 const PRECACHE = [
@@ -37,6 +37,9 @@ const PRECACHE = [
   './tools/library/vendor/html5-qrcode.min.js',
   './tools/notes/',
   './tools/notes/index.html',
+  './tools/backup/',
+  './tools/backup/index.html',
+  './tools/backup/app.js',
   './tools/shelf/',
   './tools/shelf/index.html',
   './tools/shelf/app.js',

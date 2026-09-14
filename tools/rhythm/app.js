@@ -46,6 +46,46 @@
   // 睡觉、下班可能落在半夜之后，输入小于分界就算跨天
   const CAN_CROSS = { sleep: true, off: true, wake: false, work: false };
 
+  /* 2026 年法定节假日与调休上班日（国务院办公厅通知）。
+     只写死当年 —— 每年安排都不一样，没有可推算的规律，
+     硬编码比引第三方接口可靠，跨年时来这儿加一段就行。
+     OFF  = 放假（哪怕是周中）
+     WORK = 调休补班（哪怕是周末） */
+  const HOLIDAY_OFF = new Set([
+    // 元旦 1/1–1/3
+    '2026-01-01', '2026-01-02', '2026-01-03',
+    // 春节 2/15–2/23
+    '2026-02-15', '2026-02-16', '2026-02-17', '2026-02-18', '2026-02-19',
+    '2026-02-20', '2026-02-21', '2026-02-22', '2026-02-23',
+    // 清明 4/4–4/6
+    '2026-04-04', '2026-04-05', '2026-04-06',
+    // 劳动节 5/1–5/5
+    '2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05',
+    // 端午 6/19–6/21
+    '2026-06-19', '2026-06-20', '2026-06-21',
+    // 中秋 9/25–9/27
+    '2026-09-25', '2026-09-26', '2026-09-27',
+    // 国庆 10/1–10/7
+    '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04',
+    '2026-10-05', '2026-10-06', '2026-10-07'
+  ]);
+
+  const HOLIDAY_WORK = new Set([
+    '2026-01-04',                 // 元旦补班（周日）
+    '2026-02-14', '2026-02-28',   // 春节补班（周六）
+    '2026-05-09',                 // 劳动节补班（周六）
+    '2026-09-20',                 // 国庆补班（周日）
+    '2026-10-10'                  // 国庆补班（周六）
+  ]);
+
+  /** 这天算不算工作日：补班算上班，节假日和周末不算 */
+  function isWorkday(k) {
+    if (HOLIDAY_WORK.has(k)) return true;
+    if (HOLIDAY_OFF.has(k)) return false;
+    const d = dparse(k).getDay();
+    return d >= 1 && d <= 5;
+  }
+
   const store = new Store('rhythm');
 
   /* ---------- 时间与日期 ---------- */
@@ -159,6 +199,7 @@
   let chartDays = 14;
   let editKey = null;      // 编辑面板正在编哪一天，null = 收起
   let period = 'rolling';  // 统计周期，见 PERIODS
+  let workdayOnly = false; // 只统计工作日（排除周末和节假日，含调休补班）
 
   function persist() { store.save(data); }
 
@@ -377,12 +418,15 @@
     ? arr.reduce((a, b) => a + b, 0) / arr.length
     : null;
 
-  /** 统计一个日期区间。四项各自独立算，缺哪项只是那项为 null。 */
+  /** 统计一个日期区间。四项各自独立算，缺哪项只是那项为 null。
+      workdayOnly 打开时跳过周末和节假日，只留工作日和调休补班日。 */
   function collectRange(start, end) {
     const wake = [], sleep = [], sdur = [], wdur = [];
     let logged = 0;
 
-    rangeKeys(start, end).forEach(k => {
+    const days = rangeKeys(start, end).filter(k => !workdayOnly || isWorkday(k));
+
+    days.forEach(k => {
       const r = dayOf(k);
       if (r && KINDS.some(x => r[x.key] != null)) logged++;
       if (r && r.wake != null) wake.push(r.wake);
@@ -395,7 +439,7 @@
       wake: avg(wake), sleep: avg(sleep),
       sdur: avg(sdur), wdur: avg(wdur),
       logged,
-      span: rangeKeys(start, end).length,
+      span: days.length,
       n: { wake: wake.length, sleep: sleep.length, sdur: sdur.length, wdur: wdur.length }
     };
   }
@@ -437,7 +481,8 @@
 
     // 区间说明放在标题右侧，让「这些数是哪几天的」一目了然
     document.getElementById('range-note').textContent =
-      `${mdLabel(cur.start)}–${mdLabel(cur.end)} · 记了 ${A.logged} 天`;
+      `${mdLabel(cur.start)}–${mdLabel(cur.end)} · ` +
+      (workdayOnly ? `工作日记了 ${A.logged} 天` : `记了 ${A.logged} 天`);
 
     document.getElementById('stats').innerHTML = METRICS.map(m => {
       const now = showVal(m, A[m.key]);
@@ -518,9 +563,13 @@
 
   function renderSummary(p, A, B) {
     const el = document.getElementById('summary');
+    // 打开只看工作日时把口径说明白，否则「本月平均起床 09:34」会被误读
+    const scope = workdayOnly ? `${p.name}工作日` : p.name;
 
     if (!A.logged) {
-      el.innerHTML = `${p.name}还没有记录，打几次卡这里就会出现平均值。`;
+      el.innerHTML = workdayOnly
+        ? `${scope}还没有记录，可能这段时间都是周末或节假日。`
+        : `${p.name}还没有记录，打几次卡这里就会出现平均值。`;
       return;
     }
 
@@ -536,8 +585,8 @@
     }
 
     let text = parts.length
-      ? `${p.name}${parts.join('，')}。`
-      : `${p.name}记了 ${A.logged} 天，还凑不出完整的平均值。`;
+      ? `${scope}${parts.join('，')}。`
+      : `${scope}记了 ${A.logged} 天，还凑不出完整的平均值。`;
 
     // 跟上期的差异单独说一句，只挑变化最明显的一项，不然太啰嗦
     if (B.logged) {
@@ -777,6 +826,15 @@
     };
     segBox.appendChild(b);
   });
+
+  // 只看工作日：周末作息偏晚会把平均值拽后，想看真实上班节奏就打开它
+  const wdBtn = document.getElementById('workday-only');
+  wdBtn.onclick = () => {
+    workdayOnly = !workdayOnly;
+    wdBtn.classList.toggle('on', workdayOnly);
+    wdBtn.setAttribute('aria-pressed', String(workdayOnly));
+    renderStats();
+  };
 
   document.getElementById('more').onclick = () => {
     logAll = !logAll;

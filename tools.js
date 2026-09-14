@@ -56,6 +56,13 @@ window.TOOLS = [
     desc: '想到就记一笔，存在本机',
     icon: '¶',
     tag: 'demo'
+  },
+  {
+    path: 'tools/backup/',
+    name: '整机备份',
+    desc: '所有工具的数据一次导出，换手机时一次导回来',
+    icon: '⇄',
+    tag: ''
   }
 
   // 加新工具照抄上面这一段，注意前一段结尾要有逗号：

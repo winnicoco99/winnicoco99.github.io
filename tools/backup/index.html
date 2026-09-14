@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>整机备份</title>
+<meta name="theme-color" content="#EFEAE0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" href="../../icons/icon-192.png">
+
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  header { margin-bottom:34px; }
+  .head-top { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+  .head-top .overline { color:var(--text-sec); }
+
+  .sec-head {
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin:0 0 16px;
+  }
+  .sec-note {
+    font-family:var(--mono); font-size:11px; letter-spacing:1.2px;
+    color:var(--text-sec);
+  }
+
+  .lead {
+    font-size:15px; line-height:1.75; color:var(--text-sec);
+    margin-bottom:8px;
+  }
+  .lead b { color:var(--text); font-weight:900; }
+
+  /* ===== 清单：一行一个工具，右侧是条数 ===== */
+  .inv-list { list-style:none; }
+  .inv-row {
+    display:flex; align-items:baseline; gap:10px;
+    padding:13px 2px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .inv-row:first-child { border-top:1px solid var(--line-soft); }
+  .inv-name {
+    flex-shrink:0; width:5.5em;
+    font-family:var(--serif); font-weight:900; font-size:15px;
+  }
+  .inv-where {
+    flex:1; min-width:0;
+    font-family:var(--mono); font-size:10px; letter-spacing:.5px;
+    color:var(--text-sec); opacity:.7;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .inv-n {
+    flex-shrink:0;
+    font-family:var(--mono); font-size:11px; letter-spacing:.4px;
+    color:var(--text-sec);
+  }
+
+  #inv-empty {
+    background:var(--cream-deep);
+    border-radius:var(--radius-lg);
+    padding:44px 30px; text-align:center;
+    color:var(--text-sec); font-size:15px; line-height:1.8;
+  }
+
+  .io-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; }
+
+  .btn-solid {
+    font-family:var(--serif); font-weight:900; font-size:15px;
+    color:var(--cream);
+    background:var(--ink); border:1.5px solid var(--ink);
+    border-radius:var(--radius);
+    padding:13px 22px; cursor:pointer;
+    transition:opacity .15s;
+  }
+  .btn-solid:hover { opacity:.85; }
+  .btn-solid:disabled { opacity:.35; cursor:default; }
+
+  .btn-ghost {
+    font-family:var(--serif); font-weight:900; font-size:15px;
+    color:var(--text);
+    background:transparent;
+    border:1.5px solid var(--line);
+    border-radius:var(--radius);
+    padding:13px 22px; cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .btn-ghost:hover { border-color:var(--orange); color:var(--orange); }
+
+  .linkbtn {
+    background:none; border:none; cursor:pointer;
+    font-family:var(--mono); font-size:11px; letter-spacing:1.2px;
+    color:var(--text-sec);
+    transition:color .15s;
+  }
+  .linkbtn:hover { color:var(--orange); }
+
+  .io-note {
+    margin-top:16px; padding:14px 16px;
+    background:var(--cream-deep); border-radius:var(--radius);
+    font-size:14px; line-height:1.7; color:var(--text-sec);
+  }
+  .io-note[hidden] { display:none; }
+
+  .steps { list-style:none; counter-reset:s; margin-top:6px; }
+  .steps li {
+    counter-increment:s;
+    position:relative; padding:9px 0 9px 30px;
+    font-size:14px; line-height:1.7; color:var(--text-sec);
+  }
+  .steps li::before {
+    content:counter(s);
+    position:absolute; left:0; top:9px;
+    font-family:var(--mono); font-size:11px;
+    color:var(--orange);
+  }
+  .steps b { color:var(--text); font-weight:900; }
+
+  .block { margin-top:44px; }
+
+  @media (max-width:480px) {
+    .wrap { padding-left:22px; padding-right:22px; }
+    .title-display { font-size:34px; }
+    .io-row .btn-solid, .io-row .btn-ghost { flex:1; padding:13px 10px; }
+    .inv-name { width:4.6em; font-size:14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="head-top">
+      <a class="back" href="../../" aria-label="返回工作台">←</a>
+      <div class="overline">Backup</div>
+    </div>
+    <h1 class="title-display">整机<span class="orange">备份</span></h1>
+  </header>
+
+  <!-- 清单：先让用户看清这次会带走什么 -->
+  <section>
+    <div class="sec-head">
+      <div class="overline sec">Contents</div>
+      <div class="sec-note" id="inv-count"></div>
+    </div>
+    <p class="lead">
+      把<b>所有工具</b>的数据打成一个文件，不用一个个点进去导。
+      换设备时在新手机上导入这一个文件就全回来了。
+    </p>
+    <ul class="inv-list" id="inv-list"></ul>
+    <div id="inv-empty" hidden>
+      这台设备上还没有任何工具数据<br>先去用几下再回来备份
+    </div>
+    <div style="margin-top:16px">
+      <button class="linkbtn" id="rescan" type="button">重新扫描</button>
+    </div>
+  </section>
+
+  <!-- 导出导入 -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="overline sec">Transfer</div>
+    </div>
+    <div class="io-row">
+      <button class="btn-solid" id="export-all" type="button">一键导出全部</button>
+      <button class="btn-ghost" id="import-all" type="button">一键导入恢复</button>
+    </div>
+    <p class="io-note" id="io-note" hidden></p>
+  </section>
+
+  <!-- 换手机的操作顺序，写清楚省得临时问 -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="overline sec">换设备怎么做</div>
+    </div>
+    <ol class="steps">
+      <li>在<b>旧手机</b>上打开这一页，点「一键导出全部」，得到一个 json 文件</li>
+      <li>把文件存到<b>网盘</b>，或者用微信发给自己，别只留在旧手机上</li>
+      <li>在<b>新手机</b>上打开工作台，进这一页点「一键导入恢复」，选那个文件</li>
+      <li>问合并还是替换时，新手机是空的，两个都行；<b>替换</b>更干净</li>
+      <li>回到各工具页面刷新一下，数据就在了</li>
+    </ol>
+    <p class="lead" style="margin-top:14px">
+      数据只存在浏览器里。清除浏览器数据、删掉这个应用、或者
+      iOS 长时间不打开被系统清理，都会丢。建议每隔一段时间导一份存着。
+    </p>
+  </section>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
