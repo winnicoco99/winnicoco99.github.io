@@ -220,7 +220,12 @@
     return dur > 0 ? dur : null;
   }
 
-  /** 有记录的日期，新→旧 */
+  /* 有记录的日期，新→旧。
+
+     ⛔ 注意这个过滤会把「四项全空的日子」整天滤掉，历史列表因此没有那一行。
+     所以**不能只靠历史列表当补记入口** —— 忘打一整天的时候恰恰最需要补，
+     而那天正好不在这个列表里（2026-09-20 修的 bug）。
+     补记入口在条带图（每行都可点，含空白行）和编辑面板的日期翻页。 */
   function sortedKeys() {
     return Object.keys(data)
       .filter(k => {
@@ -266,6 +271,7 @@
           if (editKey === today) closeEditor();
           else {
             openEditor(today);
+            renderExceptEditor();
             // 打开后把焦点直接送到被点的那一项，少一次点击
             const target = edInputs && edInputs[k.key];
             if (target) target.focus();
@@ -329,15 +335,30 @@
     box.innerHTML = `
       <div class="ed-head">
         <span class="overline sec">Edit</span>
-        <span class="ed-date"></span>
+        <div class="ed-nav">
+          <button class="ed-step" type="button" data-step="-1" title="前一天">‹</button>
+          <span class="ed-date"></span>
+          <button class="ed-step" type="button" data-step="1" title="后一天">›</button>
+        </div>
       </div>
       <div class="ed-rows"></div>
       <div class="ed-foot">
         <button class="btn-ghost" type="button" data-close>收起</button>
         <span class="ed-tip">下班 / 睡觉 填 00:00–03:59 视为跨到次日凌晨</span>
       </div>`;
-    box.querySelector('.ed-date').textContent =
-      `${mdLabel(key)} 周${weekOf(key)}`;
+    renderEditorDate();
+
+    /* 日期左右翻。忘打卡的那天在历史列表里是不存在的，
+       从相邻的某一天翻过去是最顺手的补记路径。
+       往后不允许翻过今天 —— 未来的作息没有意义。 */
+    box.querySelectorAll('.ed-step').forEach(b => {
+      b.onclick = () => {
+        const to = shiftKey(editKey, Number(b.dataset.step));
+        if (to > nowPoint().key) return;
+        openEditor(to);
+        renderExceptEditor();
+      };
+    });
 
     const rows = box.querySelector('.ed-rows');
     edInputs = {};
@@ -387,6 +408,19 @@
 
     box.querySelector('[data-close]').onclick = () => closeEditor();
     syncEditor();
+  }
+
+  /** 面板标题的日期，以及「往后翻」是否到顶 */
+  function renderEditorDate() {
+    const box = document.getElementById('editor');
+    const el = box.querySelector('.ed-date');
+    if (!el) return;
+    const today = nowPoint().key;
+    el.textContent = editKey === today
+      ? `${mdLabel(editKey)} 周${weekOf(editKey)} · 今天`
+      : `${mdLabel(editKey)} 周${weekOf(editKey)}`;
+    const fwd = box.querySelector('.ed-step[data-step="1"]');
+    if (fwd) fwd.disabled = editKey >= today;
   }
 
   function closeEditor() {
@@ -643,9 +677,23 @@
       const nextRec = dayOf(shiftKey(k, 1));
 
       const row = document.createElement('div');
-      row.className = 'crow' + (k === today ? ' is-today' : '');
+      // 空白行也要能点 —— 忘了一整天时，这里是唯一能看见那天的地方
+      const blank = !rec || !KINDS.some(x => rec[x.key] != null);
+      row.className = 'crow' + (k === today ? ' is-today' : '')
+        + (blank ? ' is-blank' : '')
+        + (editKey === k ? ' is-editing' : '');
+      row.title = blank ? `${mdLabel(k)} 没有记录，点一下补` : `点一下改 ${mdLabel(k)}`;
       row.innerHTML = `<div class="crow-date">${mdLabel(k)}</div><div class="track"></div>`;
       const track = row.querySelector('.track');
+
+      row.onclick = () => {
+        if (editKey === k) { closeEditor(); return; }
+        openEditor(k);
+        // 重画一次才能把 is-editing 高亮落到新选中的行上
+        renderExceptEditor();
+        document.getElementById('editor')
+          .scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
 
       // 0 点参考线
       const mid = document.createElement('div');
@@ -703,6 +751,20 @@
       <span><i style="background:var(--orange)"></i>在岗</span>
       <span><i style="background:#BDB4A2"></i>睡眠</span>`;
     box.appendChild(lg);
+
+    // 空白行才是要引导的对象，没有漏记时就不啰嗦
+    const missed = [];
+    for (let i = chartDays - 1; i >= 0; i--) {
+      const k = shiftKey(today, -i);
+      const r = dayOf(k);
+      if (!r || !KINDS.some(x => r[x.key] != null)) missed.push(k);
+    }
+    const tip = document.createElement('p');
+    tip.className = 'chart-tip';
+    tip.textContent = missed.length
+      ? `点任意一行补记 · 近 ${chartDays} 天有 ${missed.length} 天没记（${missed.slice(-3).map(mdLabel).join('、')}${missed.length > 3 ? ' 等' : ''}）`
+      : '点任意一行可以改那天的时间';
+    box.appendChild(tip);
   }
 
   /* ---------- 历史 ---------- */
@@ -727,7 +789,8 @@
         : '<span class="miss">--:--</span>';
 
       const li = document.createElement('li');
-      li.className = 'hrow' + (k === nowPoint().key ? ' is-today' : '');
+      li.className = 'hrow' + (k === nowPoint().key ? ' is-today' : '')
+        + (editKey === k ? ' is-editing' : '');
       const s = sleepDur(k), w = workDur(k);
       li.innerHTML = `
         <div class="h-date">${mdLabel(k)} ${weekOf(k)}</div>
@@ -742,6 +805,8 @@
       li.onclick = () => {
         if (editKey === k) { closeEditor(); return; }
         openEditor(k);
+        // 同上，让 is-editing 高亮跟上
+        renderExceptEditor();
         document.getElementById('editor')
           .scrollIntoView({ behavior: 'smooth', block: 'center' });
       };

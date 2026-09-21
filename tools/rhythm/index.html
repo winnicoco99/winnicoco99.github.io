@@ -78,7 +78,23 @@
     display:flex; align-items:baseline; justify-content:space-between;
     margin-bottom:12px;
   }
-  .ed-date { font-family:var(--mono); font-size:11px; letter-spacing:1.4px; color:var(--text-sec); }
+  .ed-nav { display:flex; align-items:center; gap:4px; }
+  .ed-date {
+    font-family:var(--mono); font-size:11px; letter-spacing:1.4px;
+    color:var(--text-sec);
+    min-width:9.5em; text-align:center;
+  }
+  /* 左右翻页：忘打卡的那天不在历史列表里，靠这个从邻近日期翻过去补 */
+  .ed-step {
+    width:30px; height:30px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--cream); border:none; border-radius:9px;
+    font-family:var(--serif); font-size:17px; line-height:1;
+    color:var(--text-sec); cursor:pointer;
+    transition:color .15s, opacity .15s;
+  }
+  .ed-step:hover:not(:disabled) { color:var(--orange); }
+  .ed-step:disabled { opacity:.3; cursor:default; }
   .ed-row {
     display:flex; align-items:center; gap:10px;
     padding:7px 0;
@@ -233,16 +249,24 @@
     font-family:var(--mono); font-size:9px; letter-spacing:.5px;
     color:var(--text-sec); white-space:nowrap;
   }
+  /* 每一行都可点进去补记，包含完全空白的日子 —— 忘打一整天时，
+     历史列表里没有那一行，这里是唯一能看见并点到它的地方。 */
   .crow {
     display:flex; align-items:center; gap:8px;
-    height:25px;
+    height:25px; cursor:pointer;
+    border-radius:4px;
   }
+  .crow:hover { background:rgba(0,0,0,.025); }
+  .crow.is-editing { background:rgba(200,106,58,.09); }
   .crow-date {
     width:38px; flex-shrink:0;
     font-family:var(--mono); font-size:10px; letter-spacing:.3px;
     color:var(--text-sec);
   }
   .crow.is-today .crow-date { color:var(--orange); }
+  /* 整天空白的日期号淡一点，一眼能扫出哪天漏了 */
+  .crow.is-blank .crow-date { opacity:.45; }
+  .crow.is-editing .crow-date { color:var(--orange); }
   /* 横轴是 04:00 → 次日 12:00（32 小时），
      这样整段睡眠能画在同一行里，不会被 0 点切断。 */
   .track {
@@ -281,6 +305,11 @@
     border-radius:2px; margin-right:6px; vertical-align:middle;
   }
   .legend .lg-wake i { width:2px; height:12px; background:var(--ink); }
+  .chart-tip {
+    margin:10px 0 0 46px;
+    font-family:var(--mono); font-size:10px; letter-spacing:.6px;
+    line-height:1.6; color:var(--text-sec); opacity:.7;
+  }
 
   /* ===== 历史 ===== */
   .hlist { list-style:none; }
@@ -292,6 +321,7 @@
   }
   .hrow:first-child { border-top:1px solid var(--line-soft); }
   .hrow:hover { background:rgba(0,0,0,.015); }
+  .hrow.is-editing { background:rgba(200,106,58,.09); }
   .h-date {
     width:52px; flex-shrink:0;
     font-family:var(--mono); font-size:11px; letter-spacing:.4px;

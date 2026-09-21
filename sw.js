@@ -16,7 +16,7 @@
    见 needsRevalidate() 和 install 里的 `cache:'reload'`。
    光把 VERSION +1 解决不了这个问题。
 */
-const VERSION = 'v15';
+const VERSION = 'v16';
 const CACHE = 'workbench-' + VERSION;
 
 const PRECACHE = [
