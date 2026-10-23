@@ -403,24 +403,24 @@ a { color: var(--accent); text-decoration: none; }
   padding:4px 0 4px 8px; cursor:pointer; line-height:1; }
 
 /* ── 时间线 ── */
-.tl-date { font-size:12px; font-weight:750; color:var(--text-tertiary);
+.jn-date { font-size:12px; font-weight:750; color:var(--text-tertiary);
   letter-spacing:.02em; padding:16px 0 9px 24px; }
-.tl-item { position:relative; padding:0 0 13px 24px; }
-.tl-item::before { content:''; position:absolute; left:5px; top:8px; bottom:-6px;
+.jn-item { position:relative; padding:0 0 13px 24px; }
+.jn-item::before { content:''; position:absolute; left:5px; top:8px; bottom:-6px;
   width:1.5px; background:rgba(0,0,0,.10); }
-.tl-item:last-child::before { display:none; }
-.tl-item::after { content:''; position:absolute; left:1px; top:5px; width:9px; height:9px;
+.jn-item:last-child::before { display:none; }
+.jn-item::after { content:''; position:absolute; left:1px; top:5px; width:9px; height:9px;
   border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--bg-elevated); }
-.tl-item[data-tag="已订"]::after { background:#34c759; }
-.tl-item[data-tag="花费"]::after { background:#ff9500; }
-.tl-item[data-tag="提醒"]::after { background:#ff3b30; }
-.tl-card { background:var(--bg-elevated); border-radius:12px; padding:11px 13px; box-shadow:var(--shadow-sm); }
-.tl-time { font-size:11px; font-weight:750; color:var(--accent); letter-spacing:.02em; }
-.tl-text { font-size:14.5px; line-height:1.52; margin-top:3px; word-break:break-word; white-space:pre-wrap; }
-.tl-meta { font-size:10.5px; color:var(--text-tertiary); margin-top:7px;
+.jn-item[data-tag="已订"]::after { background:#34c759; }
+.jn-item[data-tag="花费"]::after { background:#ff9500; }
+.jn-item[data-tag="提醒"]::after { background:#ff3b30; }
+.jn-card { background:var(--bg-elevated); border-radius:12px; padding:11px 13px; box-shadow:var(--shadow-sm); }
+.jn-time { font-size:11px; font-weight:750; color:var(--accent); letter-spacing:.02em; }
+.jn-text { font-size:14.5px; line-height:1.52; margin-top:3px; word-break:break-word; white-space:pre-wrap; }
+.jn-meta { font-size:10.5px; color:var(--text-tertiary); margin-top:7px;
   display:flex; gap:8px; align-items:center; }
-.tl-meta .tag { background:var(--bg-grouped); padding:1.5px 7px; border-radius:5px; font-weight:700; }
-.tl-del { margin-left:auto; border:none; background:none; color:var(--text-tertiary);
+.jn-meta .tag { background:var(--bg-grouped); padding:1.5px 7px; border-radius:5px; font-weight:700; }
+.jn-del { margin-left:auto; border:none; background:none; color:var(--text-tertiary);
   font-size:11.5px; cursor:pointer; padding:0; font-family:inherit; }
 
 /* ── 记事输入 ── */
@@ -1379,17 +1379,17 @@ function renderLog(){
   });
 
   const tl = groups.length ? groups.map(g => `
-    <div class="tl-day">
-      <div class="tl-date">${dayLabel(g.k)}</div>
+    <div class="jn-day">
+      <div class="jn-date">${dayLabel(g.k)}</div>
       ${g.items.map(it => `
-        <div class="tl-item" data-tag="${it.tag || '备忘'}">
-          <div class="tl-card">
-            <div class="tl-time">${timeLabel(it.when)}</div>
-            <div class="tl-text">${esc(it.text)}</div>
-            <div class="tl-meta">
+        <div class="jn-item" data-tag="${it.tag || '备忘'}">
+          <div class="jn-card">
+            <div class="jn-time">${timeLabel(it.when)}</div>
+            <div class="jn-text">${esc(it.text)}</div>
+            <div class="jn-meta">
               <span class="tag">${it.tag || '备忘'}</span>
               ${it.ts ? `<span>记于 ${new Date(it.ts).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>` : ''}
-              <button class="tl-del" onclick="delLog('${it.id}')">删除</button>
+              <button class="jn-del" onclick="delLog('${it.id}')">删除</button>
             </div>
           </div>
         </div>`).join('')}
