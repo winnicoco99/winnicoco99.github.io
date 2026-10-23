@@ -41,6 +41,7 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --safe-top: env(safe-area-inset-top, 0px);
+  --topbar-h: calc(var(--safe-top) + 52px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: dark) {
@@ -58,6 +59,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
   background: var(--bg-secondary);
   color: var(--text-primary);
+  padding-top: var(--topbar-h);
   -webkit-font-smoothing: antialiased;
   line-height: 1.47;
   letter-spacing: -0.018em;
@@ -88,8 +90,8 @@ a { color: var(--accent); text-decoration: none; }
 .countdown.live { background: rgba(52,199,89,.14); color:#1f9d43; }
 
 /* ── Map ── */
-#map { width:100%; height: 38vh; min-height: 260px; position: sticky; top:0; z-index:100; }
-.map-wrap { position: sticky; top:0; z-index:100; }
+#map { width:100%; height: 38vh; min-height: 260px; }
+.map-wrap { position: sticky; top: var(--topbar-h); z-index:100; }
 .locate-btn, .fit-btn {
   width:36px; height:36px; border-radius:9px; background: rgba(255,255,255,.92);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
@@ -105,7 +107,7 @@ a { color: var(--accent); text-decoration: none; }
   display:flex; gap:6px; padding: 10px 16px; overflow-x:auto;
   background: rgba(255,255,255,.88);
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-  position: sticky; top: 38vh; z-index:99;
+  position: sticky; top: calc(var(--topbar-h) + 38vh); z-index:99;
   border-bottom:.5px solid var(--separator);
   scrollbar-width:none;
 }
@@ -563,9 +565,7 @@ const localTiles = L.tileLayer('tiles/{z}/{x}/{y}.png', {
 const TILE_SOURCES = [
   { url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
     opt:{ maxZoom:19, subdomains:'abcd' } },
-  { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt:{ maxZoom:19 } },
-  { url:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    opt:{ maxZoom:16 } }
+  { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt:{ maxZoom:19 } }
 ];
 let netTiles = null, netOn = false;
 
@@ -592,9 +592,15 @@ async function enableNetTiles(){
     }
   }
 }
-// 本地瓦片取不到（z>11 或越界）时，开网络瓦片补上
-let errCount = 0;
-localTiles.on('tileerror', () => { if (++errCount > 2) enableNetTiles(); });
+// 本地瓦片确实取不到时才开网络兜底。阈值放宽，避免首屏还在下载就误判
+let errCount = 0, errTimer = null;
+localTiles.on('tileerror', () => {
+  errCount++;
+  clearTimeout(errTimer);
+  errTimer = setTimeout(() => { errCount = 0; }, 4000);
+  if (errCount >= 8) enableNetTiles();
+});
+localTiles.on('tileload', () => { errCount = 0; });
 map.on('zoomend', () => { if (map.getZoom() > 11) enableNetTiles(); });
 
 /* 定位按钮 */
@@ -1619,6 +1625,18 @@ document.querySelectorAll('.bnav button').forEach(b => {
     if (!isTrip) setTimeout(()=>map.invalidateSize(), 120);
   });
 });
+
+/* 顶栏高度实测：不同机型安全区/字号有差异，用真实高度兜底 */
+function syncTopbarH(){
+  const el = document.getElementById('topbar');
+  if (!el) return;
+  const h = el.offsetHeight;
+  if (h > 0) document.documentElement.style.setProperty('--topbar-h', h + 'px');
+}
+syncTopbarH();
+setTimeout(syncTopbarH, 200);
+window.addEventListener('resize', syncTopbarH);
+window.addEventListener('orientationchange', () => setTimeout(syncTopbarH, 260));
 
 /* 滚动时顶栏描边 */
 window.addEventListener('scroll', () => {
