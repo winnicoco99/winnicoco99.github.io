@@ -349,8 +349,9 @@ a { color: var(--accent); text-decoration: none; }
 .share-box { background: var(--bg-elevated); border-radius: var(--radius-md); padding:13px 15px; box-shadow: var(--shadow-sm); margin-bottom:10px; }
 .share-box .url {
   font-size:11px; color:var(--text-secondary); background: var(--bg-grouped);
-  border-radius:8px; padding:9px 10px; margin:9px 0; word-break:break-all;
+  border-radius:8px; padding:9px 10px; margin:9px 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height:1.45;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
 .banner {
   display:flex; align-items:center; gap:8px; padding:11px 14px; border-radius: var(--radius-md);
@@ -359,6 +360,85 @@ a { color: var(--accent); text-decoration: none; }
 .banner.info { background: rgba(0,113,227,.08); color: var(--accent); }
 .banner.warn { background: rgba(255,149,0,.1); color: #b37600; }
 .banner button { margin-left:auto; border:none; background:none; color:inherit; font-weight:800; font-size:13px; font-family:inherit; cursor:pointer; white-space:nowrap; }
+
+/* ── 记账面板 ── */
+.sheet-mask { position:fixed; inset:0; background:rgba(0,0,0,.34); z-index:2000; opacity:0; pointer-events:none; transition:.22s;
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+.sheet-mask.on { opacity:1; pointer-events:auto; }
+.sheet { position:fixed; left:0; right:0; bottom:0; z-index:2001; background:var(--bg-elevated);
+  border-radius:20px 20px 0 0; padding:18px 20px calc(20px + var(--safe-bottom));
+  transform:translateY(110%); transition:transform .32s cubic-bezier(.32,.72,0,1);
+  max-height:88vh; overflow-y:auto; box-shadow:0 -8px 40px rgba(0,0,0,.18); }
+.sheet.on { transform:translateY(0); }
+.sheet h3 { margin:0 0 4px; font-size:19px; letter-spacing:-.03em; }
+.sheet .hint { font-size:12px; color:var(--text-tertiary); margin-bottom:15px; }
+.fld { margin-bottom:12px; }
+.fld label { display:block; font-size:11px; font-weight:750; color:var(--text-tertiary);
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+.fld input, .fld select, .fld textarea { width:100%; box-sizing:border-box; font:inherit; font-size:16px;
+  padding:10px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.09);
+  background:var(--bg-grouped); color:var(--text-primary); }
+.fld textarea { resize:none; min-height:56px; font-size:15px; }
+.fld input:focus, .fld select:focus, .fld textarea:focus { outline:none; border-color:var(--accent); }
+.cur-seg { display:flex; gap:6px; }
+.cur-seg button { flex:1; padding:9px 0; border-radius:9px; border:1px solid rgba(0,0,0,.09);
+  background:var(--bg-grouped); font:inherit; font-size:13.5px; font-weight:700;
+  color:var(--text-secondary); cursor:pointer; transition:.16s; }
+.cur-seg button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.sheet-actions { display:flex; gap:10px; margin-top:16px; }
+.sheet-actions .btn { flex:1; }
+
+/* ── 明细列表 ── */
+.led { display:flex; align-items:center; gap:10px; padding:11px 14px;
+  background:var(--bg-elevated); border-radius:var(--radius-md);
+  box-shadow:var(--shadow-sm); margin-bottom:7px; }
+.led .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.led .txt { flex:1; min-width:0; }
+.led .t1 { font-size:14.5px; font-weight:650; letter-spacing:-.01em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.led .t2 { font-size:11.5px; color:var(--text-tertiary); margin-top:2px; }
+.led .amt { font-size:14.5px; font-weight:750; letter-spacing:-.02em; white-space:nowrap; text-align:right; }
+.led .amt small { display:block; font-size:10.5px; font-weight:600; color:var(--text-tertiary); margin-top:2px; }
+.led .del { border:none; background:none; color:var(--text-tertiary); font-size:15px;
+  padding:4px 0 4px 8px; cursor:pointer; line-height:1; }
+
+/* ── 时间线 ── */
+.tl-date { font-size:12px; font-weight:750; color:var(--text-tertiary);
+  letter-spacing:.02em; padding:16px 0 9px 24px; }
+.tl-item { position:relative; padding:0 0 13px 24px; }
+.tl-item::before { content:''; position:absolute; left:5px; top:8px; bottom:-6px;
+  width:1.5px; background:rgba(0,0,0,.10); }
+.tl-item:last-child::before { display:none; }
+.tl-item::after { content:''; position:absolute; left:1px; top:5px; width:9px; height:9px;
+  border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--bg-elevated); }
+.tl-item[data-tag="已订"]::after { background:#34c759; }
+.tl-item[data-tag="花费"]::after { background:#ff9500; }
+.tl-item[data-tag="提醒"]::after { background:#ff3b30; }
+.tl-card { background:var(--bg-elevated); border-radius:12px; padding:11px 13px; box-shadow:var(--shadow-sm); }
+.tl-time { font-size:11px; font-weight:750; color:var(--accent); letter-spacing:.02em; }
+.tl-text { font-size:14.5px; line-height:1.52; margin-top:3px; word-break:break-word; white-space:pre-wrap; }
+.tl-meta { font-size:10.5px; color:var(--text-tertiary); margin-top:7px;
+  display:flex; gap:8px; align-items:center; }
+.tl-meta .tag { background:var(--bg-grouped); padding:1.5px 7px; border-radius:5px; font-weight:700; }
+.tl-del { margin-left:auto; border:none; background:none; color:var(--text-tertiary);
+  font-size:11.5px; cursor:pointer; padding:0; font-family:inherit; }
+
+/* ── 记事输入 ── */
+.log-bar textarea { width:100%; box-sizing:border-box; font:inherit; font-size:15px;
+  padding:12px 14px; border-radius:12px; border:1px solid rgba(0,0,0,.09);
+  background:var(--bg-elevated); resize:none; min-height:72px; box-shadow:var(--shadow-sm);
+  line-height:1.5; }
+.log-bar textarea:focus { outline:none; border-color:var(--accent); }
+.log-row { display:flex; gap:8px; margin-top:9px; align-items:center; }
+.log-row input[type="datetime-local"], .log-row select {
+  font:inherit; font-size:12.5px; padding:8px 9px; border-radius:9px;
+  border:1px solid rgba(0,0,0,.09); background:var(--bg-elevated); color:var(--text-primary);
+  box-shadow:var(--shadow-sm); min-width:0; }
+.log-row input[type="datetime-local"] { flex:1.5; }
+.log-row select { flex:0.8; }
+.log-row input:focus, .log-row select:focus { outline:none; border-color:var(--accent); }
+.log-row .btn { flex:0 0 auto; white-space:nowrap; padding:9px 14px; font-size:14px; }
+.empty { text-align:center; padding:44px 20px; color:var(--text-tertiary); font-size:13.5px; line-height:1.7; }
 
 /* 新版本提示 */
 #upd {
@@ -430,6 +510,7 @@ a { color: var(--accent); text-decoration: none; }
   <div class="pane" id="pane-stay"></div>
   <div class="pane" id="pane-bk"></div>
   <div class="pane" id="pane-budget"></div>
+  <div class="pane" id="pane-log"></div>
   <div class="pane" id="pane-note"></div>
 </div>
 
@@ -445,6 +526,9 @@ a { color: var(--accent); text-decoration: none; }
   </button>
   <button data-pane="budget">
     <svg viewBox="0 0 24 24"><path d="M12 3.5v17M8 7.5h6.5a2.5 2.5 0 0 1 0 5H9.5m0 0h6.5a2.5 2.5 0 0 1 0 5H8"/><path d="M17.5 3.5H6a2.5 2.5 0 0 0 0 17h11.5"/></svg>预算
+  </button>
+  <button data-pane="log">
+    <svg viewBox="0 0 24 24"><path d="M4 20.5h16"/><path d="M15 4.2l2.9 2.9L8.6 16.4l-3.9 1 1-3.9z"/><path d="M13.4 5.8l2.9 2.9"/></svg>记事
   </button>
   <button data-pane="note">
     <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9.5L13 21H5a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 5 4.5z"/><path d="M13 21v-5h5M8 9h8M8 13h5"/></svg>清单
@@ -828,36 +912,92 @@ function renderBookings(){
 /* ═══════════════ 预算 ═══════════════ */
 const BD_KEY = 'nz-trip-budget-2026';
 const COLORS = { flight:'#007aff', stay:'#ff9500', car:'#34c759', exp:'#af52de', fuel:'#30b0c7', food:'#ff3b30', other:'#8e8e93' };
+const PALETTE = ['#007aff','#ff9500','#34c759','#af52de','#30b0c7','#ff3b30','#8e8e93','#5ac8fa','#ff2d55','#ffcc00','#5856d6','#a2845e'];
+const CUR_SYM = { NZD:'NZ$', CNY:'¥', USD:'US$' };
+
+function colorOf(k){
+  if (COLORS[k]) return COLORS[k];
+  let h = 0;
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
 
 function defaultBudget(){
-  const p = {}, a = {};
-  BUDGET_CATS.forEach(c => { p[c.k] = c.plan; a[c.k] = 0; });
-  return { plan:p, act:a, rate: DEFAULT_RATE };
+  return {
+    v: 2,
+    rate: DEFAULT_RATE,          // 1 纽币 = ? 人民币
+    usd: 1.62,                   // 1 美元 = ? 纽币
+    cats: BUDGET_CATS.map(c => ({ k:c.k, name:c.name, icon:c.icon, plan:c.plan, note:c.note })),
+    entries: []
+  };
 }
+
+/* 旧结构 {plan, act, rate} 迁移成流水 */
+function legacyToV2(old){
+  const b = defaultBudget();
+  b.rate = old.rate || DEFAULT_RATE;
+  b.cats = b.cats.map(c => ({ ...c, plan: (old.plan && old.plan[c.k]) || 0 }));
+  const today = new Date().toISOString().slice(0,10);
+  let n = 0;
+  b.entries = b.cats.filter(c => (old.act && old.act[c.k]) > 0).map(c => ({
+    id: 'lg' + (n++), amt: old.act[c.k], cur: 'NZD', cat: c.k,
+    date: today, note: '之前直接填的汇总', ts: Date.now() + n
+  }));
+  return b;
+}
+
 function getBudget(){
   try {
     const s = JSON.parse(localStorage.getItem(BD_KEY));
-    if (s && s.plan && s.act) return s;
+    if (s && s.v === 2 && Array.isArray(s.cats)) {
+      if (!Array.isArray(s.entries)) s.entries = [];
+      return s;
+    }
+    if (s && s.plan && s.act) {
+      const nb = legacyToV2(s);
+      localStorage.setItem(BD_KEY, JSON.stringify(nb));   // 迁移后立刻落盘
+      return nb;
+    }
   } catch(e){}
   return defaultBudget();
 }
 function saveBudget(b){ localStorage.setItem(BD_KEY, JSON.stringify(b)); }
 
-/* 分享编码：把预算压成一段短字符串放进 URL */
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const toCNY = (nzd, rate) => nzd * rate;
+function toNZD(amt, cur, b){
+  if (cur === 'CNY') return amt / (b.rate || DEFAULT_RATE);
+  if (cur === 'USD') return amt * (b.usd || 1.62);
+  return amt;
+}
+function spentBy(b, k){
+  return b.entries.filter(e => e.cat === k).reduce((t,e) => t + toNZD(e.amt, e.cur, b), 0);
+}
+function totalPlan(b){ return b.cats.reduce((t,c) => t + (+c.plan || 0), 0); }
+function totalSpent(b){ return b.entries.reduce((t,e) => t + toNZD(e.amt, e.cur, b), 0); }
+
+/* 分享编码：只带类目和预算，明细太长不进 URL */
 function encBudget(b){
-  const nums = [b.rate, ...BUDGET_CATS.map(c => b.plan[c.k]||0), ...BUDGET_CATS.map(c => b.act[c.k]||0)];
-  const s = nums.join(',');
-  try { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-  catch(e){ return ''; }
+  const o = {
+    r: b.rate, u: b.usd,
+    c: b.cats.map(c => [c.k, c.name, +c.plan || 0])
+  };
+  try {
+    const s = JSON.stringify(o);
+    return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  } catch(e){ return ''; }
 }
 function decBudget(str){
   try {
     const s = decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
-    const n = s.split(',').map(Number);
-    if (n.length !== 1 + BUDGET_CATS.length*2 || n.some(isNaN)) return null;
-    const plan = {}, act = {};
-    BUDGET_CATS.forEach((c,i) => { plan[c.k] = n[1+i]; act[c.k] = n[1+BUDGET_CATS.length+i]; });
-    return { plan, act, rate: n[0] || DEFAULT_RATE };
+    const o = JSON.parse(s);
+    if (!o || !Array.isArray(o.c)) return null;
+    const b = defaultBudget();
+    b.rate = o.r || DEFAULT_RATE;
+    b.usd = o.u || 1.62;
+    b.cats = o.c.map(([k, name, plan]) => ({ k, name, icon:'', plan, note:'' }));
+    b.entries = [];
+    return b;
   } catch(e){ return null; }
 }
 
@@ -869,168 +1009,315 @@ try {
   if (q) SHARED = decBudget(q);
 } catch(e){}
 
-const fmt = n => (Math.round(n)).toLocaleString('en-US');
-const toCNY = (n, rate) => n * rate;
-
 function renderBudget(){
   const b = SHARED || getBudget();
-  const ro = !!SHARED;                       // 只读模式
+  const ro = !!SHARED;
   const dis = ro ? 'disabled' : '';
+  const tPlan = totalPlan(b), tSpent = totalSpent(b);
+  const left = tPlan - tSpent;
 
-  const sum = o => BUDGET_CATS.reduce((t,c) => t + (o[c.k] || 0), 0);
-  const tPlan = sum(b.plan), tAct = sum(b.act);
-  const paid = tAct > 0;
-  const left = tPlan - tAct;
-
-  const rows = BUDGET_CATS.map(c => {
-    const p = b.plan[c.k] || 0, a = b.act[c.k] || 0;
+  const rows = b.cats.map(c => {
+    const p = +c.plan || 0;
+    const a = spentBy(b, c.k);
     const pct = p > 0 ? Math.min(100, a / p * 100) : 0;
     const over = a > p && p > 0;
+    const ic = c.icon
+      ? `<svg viewBox="0 0 24 24">${c.icon}</svg>`
+      : `<b style="font-size:11px;letter-spacing:-.02em">${(c.name||'?').slice(0,1)}</b>`;
     return `<div class="bd-row">
       <div class="h">
-        <div class="ic" style="color:${COLORS[c.k]}"><svg viewBox="0 0 24 24">${c.icon}</svg></div>
+        <div class="ic" style="color:${colorOf(c.k)}">${ic}</div>
         <div class="nm">${c.name}<span class="bd-pct" style="margin-left:6px">${p>0?Math.round(a/p*100):0}%</span></div>
         <div class="amt">
-          <input type="number" inputmode="decimal" value="${a||''}" placeholder="0"
-            data-k="${c.k}" data-f="act" oninput="bdInput(this)" ${dis}>
+          <span class="bd-num" style="font-size:15px;font-weight:750;letter-spacing:-.02em">${fmt(a)}</span>
           <span class="cur">/</span>
           <input type="number" inputmode="decimal" value="${p||''}" placeholder="0"
-            data-k="${c.k}" data-f="plan" oninput="bdInput(this)" ${dis}>
+            data-k="${c.k}" data-f="plan" oninput="bdPlan(this)" ${dis}>
           <span class="cur">NZ$</span>
         </div>
       </div>
-      <div class="bd-bar"><i class="${over?'over':''}" style="width:${pct}%;background:${over?'':COLORS[c.k]}"></i></div>
-      <div class="note">${c.note}${p?`　·　预算 ${fmt(p)} NZ$ ≈ ¥${fmt(toCNY(p,b.rate))}`:''}</div>
+      <div class="bd-bar"><i class="${over?'over':''}" style="width:${pct}%;background:${over?'':colorOf(c.k)}"></i></div>
+      ${c.note ? `<div class="note">${c.note}</div>` : ''}
     </div>`;
   }).join('');
 
-  const shareUrl = location.origin + location.pathname + '?b=' + encBudget(getBudget());
+  const list = [...b.entries].sort((x,y) => (y.ts||0) - (x.ts||0));
+  const ledHtml = list.length ? list.map(e => {
+    const c = b.cats.find(x => x.k === e.cat);
+    const nzd = toNZD(e.amt, e.cur, b);
+    return `<div class="led">
+      <div class="dot" style="background:${colorOf(e.cat)}"></div>
+      <div class="txt">
+        <div class="t1">${e.note || (c ? c.name : '未分类')}</div>
+        <div class="t2">${c ? c.name : '未分类'} · ${e.date || ''}</div>
+      </div>
+      <div class="amt">${CUR_SYM[e.cur] || ''}${fmt(e.amt)}<small>≈ NZ$ ${fmt(nzd)}</small></div>
+      ${ro ? '' : `<button class="del" onclick="delLedger('${e.id}')">×</button>`}
+    </div>`;
+  }).join('') : `<div class="empty">还没有记账。<br>点上面「记一笔」，花一笔记一笔。</div>`;
 
   return `
   <div class="hero" style="padding-bottom:14px">
     <div class="eyebrow">Budget</div>
     <h1 style="font-size:30px">预算</h1>
-    <div class="sub">左边填<b>已花</b>，右边是<b>预算</b>，单位 NZ$。数据存在本机，不上传。</div>
+    <div class="sub">花一笔记一笔，自动折算成纽币。数据存在本机，不上传。</div>
   </div>
 
-  ${ro ? `<div class="banner info"><b>→</b> 这是别人分享给你的预算（只读）
+  ${ro ? `<div class="banner info"><b>→</b> 这是别人分享给你的预算（只读，不含流水）
     <button onclick="importShared()">存为我的</button></div>` : ''}
 
   <div class="bd-top">
     <div>
-      <div class="label">汇率 1 NZ$ =</div>
+      <div class="label">1 纽币 =</div>
       <input type="number" inputmode="decimal" step="0.01" value="${b.rate}" oninput="bdRate(this)" ${dis}>
       <div class="unit">人民币 ¥</div>
     </div>
     <div>
-      <div class="label">同行人数</div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;padding-top:2px">${TRIP_PEOPLE} 人</div>
-      <div class="unit">共 ${TRIP_DAYS} 天</div>
+      <div class="label">1 美元 =</div>
+      <input type="number" inputmode="decimal" step="0.01" value="${b.usd}" oninput="bdUsd(this)" ${dis}>
+      <div class="unit">纽币 NZ$</div>
     </div>
   </div>
 
   <div class="bd-total">
     <div class="cap">已花费</div>
-    <div class="big">NZ$ ${fmt(tAct)}</div>
-    <div style="font-size:13px;opacity:.65;margin-top:2px">≈ ¥ ${fmt(toCNY(tAct, b.rate))}　·　预算 NZ$ ${fmt(tPlan)}</div>
+    <div class="big">NZ$ ${fmt(tSpent)}</div>
+    <div style="font-size:13px;opacity:.65;margin-top:2px">≈ ¥ ${fmt(toCNY(tSpent,b.rate))}　·　预算 NZ$ ${fmt(tPlan)}</div>
     <div class="grid">
       <div><div class="k">剩余</div><div class="v">${fmt(left<0?0:left)}</div></div>
-      <div><div class="k">人均已花</div><div class="v">${fmt(tAct/TRIP_PEOPLE)}</div></div>
-      <div><div class="k">日均已花</div><div class="v">${fmt(paid ? tAct/TRIP_DAYS : tPlan/TRIP_DAYS)}</div></div>
+      <div><div class="k">人均已花</div><div class="v">${fmt(tSpent/TRIP_PEOPLE)}</div></div>
+      <div><div class="k">日均已花</div><div class="v">${fmt(tSpent>0 ? tSpent/TRIP_DAYS : tPlan/TRIP_DAYS)}</div></div>
     </div>
   </div>
 
-  ${left < 0 ? `<div class="banner warn">⚠️ 已超预算 NZ$ ${fmt(-left)}（≈ ¥${fmt(toCNY(-left,b.rate))}）</div>` : ''}
+  ${left < 0 ? `<div class="banner warn">▲ 已超预算 NZ$ ${fmt(-left)}（≈ ¥${fmt(toCNY(-left,b.rate))}）</div>` : ''}
 
-  <div class="section-head">分类明细 <span class="more">已花 / 预算</span></div>
+  ${ro ? '' : `<button class="btn nav" style="width:100%;margin-bottom:20px" onclick="openSheet('ledger')">＋ 记一笔</button>`}
+
+  <div class="section-head">分类明细 <span class="more">已花 / 预算（NZ$）</span></div>
   ${rows}
+  ${ro ? '' : `<button class="btn" style="width:100%;margin-top:2px" onclick="addCat()">＋ 新增类目</button>`}
+
+  <div class="section-head">账目流水 <span class="more">${b.entries.length} 笔</span></div>
+  ${ledHtml}
 
   ${ro ? `
     <div class="section-head">说明</div>
     <div class="note-block"><ul>
-      <li>你看到的是对方生成分享链接那一刻的预算快照，<b>不会随对方改动而变</b>。</li>
-      <li>想要自己记，点顶部「存为我的」，之后就存在你手机上了。</li>
-      <li>想看最新数据，让对方重新发一个链接。</li>
+      <li>你看到的是对方生成链接那一刻的<b>类目和预算</b>，不含具体流水。</li>
+      <li>点顶部「存为我的」，之后就能在你自己手机上加类目、记账。</li>
     </ul></div>`
   : `
     <div class="section-head">分享给同行的人</div>
     <div class="share-box">
-      <div style="font-size:13.5px;line-height:1.55">把这个链接发给他，他打开就能看到下面这份预算（只读）。<b>他改不了你的，你之后的改动也不会自动同步过去</b>——需要就重新发一次。</div>
-      <div class="url" id="shareUrl">${shareUrl}</div>
+      <div style="font-size:13.5px;line-height:1.55">把链接发给他，他打开能看到类目和预算（只读）。<b>流水不随链接传递</b>——各记各的账。</div>
+      <div class="url" id="shareUrl">${location.origin + location.pathname + '?b=' + encBudget(b)}</div>
       <div class="links">
         <button class="btn nav" onclick="copyShare()">复制链接</button>
         <button class="btn" onclick="openShare()">预览</button>
         <button class="btn" onclick="resetBudget()">恢复默认</button>
       </div>
-    </div>
-
-    <div class="section-head">为什么不能自动同步</div>
-    <div class="note-block"><ul>
-      <li>这个页面是纯静态的，没有服务器，所以<b>没有"对方改了我也变"这回事</b>——各人的数据都存在各自手机里。</li>
-      <li>好消息是<b>行程内容会自动更新</b>：我改了行程推上去，你们各自打开时会自动拉到最新版（顶部会提示"有新版本"）。</li>
-      <li>只有预算和清单这类自己填的数据是各自的。要真正多人共编得接云端数据库，对一个旅行页面太重了。</li>
-    </ul></div>`}
+    </div>`}
   `;
 }
 
-function bdInput(el){
+/* ── 记账面板 ── */
+let LG_CUR = 'NZD';
+
+function sheetHtml(kind){
+  const b = getBudget();
+  if (kind === 'ledger') {
+    const opts = b.cats.map(c => `<option value="${c.k}">${c.name}</option>`).join('');
+    return `<h3>记一笔</h3>
+      <div class="hint">选币种填金额，自动按汇率折成纽币。</div>
+      <div class="fld"><label>金额</label>
+        <input type="number" inputmode="decimal" id="lgAmt" placeholder="0" autocomplete="off"></div>
+      <div class="fld"><label>币种</label>
+        <div class="cur-seg" id="lgCur">
+          <button data-c="NZD" class="on" onclick="pickCur(this)">纽币 NZ$</button>
+          <button data-c="CNY" onclick="pickCur(this)">人民币 ¥</button>
+          <button data-c="USD" onclick="pickCur(this)">美元 US$</button>
+        </div></div>
+      <div class="fld"><label>类目</label><select id="lgCat">${opts}</select></div>
+      <div class="fld"><label>日期</label><input type="date" id="lgDate" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="fld"><label>备注（可选）</label>
+        <input id="lgNote" placeholder="比如：南航往返机票 2 人" autocomplete="off"></div>
+      <div class="sheet-actions">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn nav" onclick="saveLedger()">记下</button>
+      </div>`;
+  }
+  if (kind === 'cat') {
+    return `<h3>新增类目</h3>
+      <div class="hint">想记什么都行，比如签证、伴手礼、停车费。</div>
+      <div class="fld"><label>类目名称</label>
+        <input id="catName" placeholder="比如：签证" autocomplete="off"></div>
+      <div class="fld"><label>预算金额（纽币，可留空）</label>
+        <input type="number" inputmode="decimal" id="catPlan" placeholder="0"></div>
+      <div class="sheet-actions">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn nav" onclick="saveCat()">加上</button>
+      </div>`;
+  }
+  return '';
+}
+
+function openSheet(kind){
+  let mask = document.getElementById('shMask');
+  let sheet = document.getElementById('shSheet');
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = 'shMask'; mask.className = 'sheet-mask';
+    mask.onclick = closeSheet;
+    document.body.appendChild(mask);
+  }
+  if (!sheet) {
+    sheet = document.createElement('div');
+    sheet.id = 'shSheet'; sheet.className = 'sheet';
+    document.body.appendChild(sheet);
+  }
+  sheet.innerHTML = sheetHtml(kind);
+  LG_CUR = 'NZD';
+  requestAnimationFrame(() => {
+    mask.classList.add('on');
+    sheet.classList.add('on');
+    const f = sheet.querySelector('input');
+    if (f) setTimeout(() => f.focus(), 320);
+  });
+}
+function closeSheet(){
+  const mask = document.getElementById('shMask');
+  const sheet = document.getElementById('shSheet');
+  if (mask) mask.classList.remove('on');
+  if (sheet) sheet.classList.remove('on');
+}
+function pickCur(btn){
+  LG_CUR = btn.dataset.c;
+  btn.parentNode.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function saveLedger(){
+  const amt = parseFloat(document.getElementById('lgAmt').value);
+  if (!amt || amt <= 0) { toast('先填个金额'); return; }
+  const b = getBudget();
+  b.entries.push({
+    id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    amt, cur: LG_CUR,
+    cat: document.getElementById('lgCat').value,
+    date: document.getElementById('lgDate').value || new Date().toISOString().slice(0,10),
+    note: document.getElementById('lgNote').value.trim(),
+    ts: Date.now()
+  });
+  saveBudget(b);
+  closeSheet();
+  document.getElementById('pane-budget').innerHTML = renderBudget();
+  toast('已记下');
+}
+
+function delLedger(id){
+  const b = getBudget();
+  const e = b.entries.find(x => x.id === id);
+  if (!e) return;
+  if (!confirm(`删掉这一笔？（${CUR_SYM[e.cur] || ''}${fmt(e.amt)}）`)) return;
+  b.entries = b.entries.filter(x => x.id !== id);
+  saveBudget(b);
+  document.getElementById('pane-budget').innerHTML = renderBudget();
+  toast('已删除');
+}
+
+function addCat(){ openSheet('cat'); }
+function saveCat(){
+  const name = document.getElementById('catName').value.trim();
+  if (!name) { toast('给类目起个名字'); return; }
+  const b = getBudget();
+  const k = 'c' + Date.now().toString(36);
+  b.cats.push({ k, name, icon:'', plan: parseFloat(document.getElementById('catPlan').value) || 0, note:'' });
+  saveBudget(b);
+  closeSheet();
+  document.getElementById('pane-budget').innerHTML = renderBudget();
+  toast('类目已添加');
+}
+
+/* 改预算：只刷新数字，不动输入框，光标不跳 */
+function bdPlan(el){
   if (SHARED) return;
   const b = getBudget();
-  const k = el.dataset.k, f = el.dataset.f;
-  b[f][k] = parseFloat(el.value) || 0;
+  const c = b.cats.find(x => x.k === el.dataset.k);
+  if (!c) return;
+  c.plan = parseFloat(el.value) || 0;
   saveBudget(b);
-  // 只更新汇总，不重绘输入框（避免光标跳走）
-  const sum = o => BUDGET_CATS.reduce((t,c) => t + (o[c.k]||0), 0);
-  const tAct = sum(b.act), tPlan = sum(b.plan);
-  const box = document.querySelector('.bd-total');
-  const cat = BUDGET_CATS.find(c=>c.k===k);
-  const p = b.plan[k]||0, a = b.act[k]||0;
-  const row = el.closest('.bd-row');
-  const bar = row.querySelector('.bd-bar i');
-  const over = a > p && p > 0;
-  bar.style.width = (p>0 ? Math.min(100, a/p*100) : 0) + '%';
-  bar.className = over ? 'over' : '';
-  if (!over) bar.style.background = COLORS[k];
-  row.querySelector('.bd-pct').textContent = (p>0?Math.round(a/p*100):0) + '%';
-  const note = row.querySelector('.note');
-  note.innerHTML = `${cat.note}${p?`　·　预算 ${fmt(p)} NZ$ ≈ ¥${fmt(toCNY(p,b.rate))}`:''}`;
-  const left = tPlan - tAct;
-  box.querySelector('.big').textContent = 'NZ$ ' + fmt(tAct);
-  box.children[2].innerHTML = `≈ ¥ ${fmt(toCNY(tAct,b.rate))}　·　预算 NZ$ ${fmt(tPlan)}`;
-  const vs = box.querySelectorAll('.grid .v');
-  vs[0].textContent = fmt(left<0?0:left);
-  vs[1].textContent = fmt(tAct/TRIP_PEOPLE);
-  vs[2].textContent = fmt(tAct>0 ? tAct/TRIP_DAYS : tPlan/TRIP_DAYS);
-  let warn = document.querySelector('.banner.warn');
-  if (left < 0) {
-    const txt = `⚠️ 已超预算 NZ$ ${fmt(-left)}（≈ ¥${fmt(toCNY(-left,b.rate))}）`;
-    if (warn) warn.innerHTML = txt;
-    else {                                   // 首次超支 → 动态插入
-      warn = document.createElement('div');
-      warn.className = 'banner warn';
-      warn.innerHTML = txt;
-      box.insertAdjacentElement('afterend', warn);
-    }
-  } else if (warn) warn.remove();
-  const su = document.getElementById('shareUrl');
-  if (su) su.textContent = location.origin + location.pathname + '?b=' + encBudget(b);
+  repaintBudget();
 }
 function bdRate(el){
   if (SHARED) return;
   const b = getBudget();
   b.rate = parseFloat(el.value) || DEFAULT_RATE;
   saveBudget(b);
-  const sum = o => BUDGET_CATS.reduce((t,c) => t + (o[c.k]||0), 0);
-  const box = document.querySelector('.bd-total');
-  box.children[2].innerHTML = `≈ ¥ ${fmt(toCNY(sum(b.act),b.rate))}　·　预算 NZ$ ${fmt(sum(b.plan))}`;
-  BUDGET_CATS.forEach(c => {
-    const p = b.plan[c.k]||0;
-    const row = document.querySelector(`.bd-row input[data-k="${c.k}"][data-f="plan"]`).closest('.bd-row');
-    row.querySelector('.note').innerHTML = `${c.note}${p?`　·　预算 ${fmt(p)} NZ$ ≈ ¥${fmt(toCNY(p,b.rate))}`:''}`;
-  });
+  repaintBudget();
 }
+function bdUsd(el){
+  if (SHARED) return;
+  const b = getBudget();
+  b.usd = parseFloat(el.value) || 1.62;
+  saveBudget(b);
+  repaintBudget();
+}
+
+/* 只更新数字，不重建输入框 */
+function repaintBudget(){
+  const b = getBudget();
+  const pane = document.getElementById('pane-budget');
+  if (!pane || !pane.querySelector('.bd-total')) {
+    if (pane) pane.innerHTML = renderBudget();
+    return;
+  }
+  const tPlan = totalPlan(b), tSpent = totalSpent(b), left = tPlan - tSpent;
+  const box = pane.querySelector('.bd-total');
+  box.querySelector('.big').textContent = 'NZ$ ' + fmt(tSpent);
+  box.children[2].innerHTML = `≈ ¥ ${fmt(toCNY(tSpent,b.rate))}　·　预算 NZ$ ${fmt(tPlan)}`;
+  const vs = box.querySelectorAll('.grid .v');
+  vs[0].textContent = fmt(left < 0 ? 0 : left);
+  vs[1].textContent = fmt(tSpent / TRIP_PEOPLE);
+  vs[2].textContent = fmt(tSpent > 0 ? tSpent / TRIP_DAYS : tPlan / TRIP_DAYS);
+
+  b.cats.forEach(c => {
+    const inp = pane.querySelector(`.bd-row input[data-k="${c.k}"]`);
+    if (!inp) return;
+    const row = inp.closest('.bd-row');
+    const p = +c.plan || 0, a = spentBy(b, c.k);
+    const over = a > p && p > 0;
+    const pct = p > 0 ? Math.min(100, a/p*100) : 0;
+    const num = row.querySelector('.bd-num');
+    if (num) num.textContent = fmt(a);
+    const pctEl = row.querySelector('.bd-pct');
+    if (pctEl) pctEl.textContent = (p > 0 ? Math.round(a/p*100) : 0) + '%';
+    const bar = row.querySelector('.bd-bar i');
+    if (bar) {
+      bar.style.width = pct + '%';
+      bar.className = over ? 'over' : '';
+      if (!over) bar.style.background = colorOf(c.k);
+    }
+  });
+
+  let warn = pane.querySelector('.banner.warn');
+  if (left < 0) {
+    const txt = `▲ 已超预算 NZ$ ${fmt(-left)}（≈ ¥${fmt(toCNY(-left,b.rate))}）`;
+    if (warn) warn.innerHTML = txt;
+    else {
+      warn = document.createElement('div');
+      warn.className = 'banner warn';
+      warn.innerHTML = txt;
+      box.insertAdjacentElement('afterend', warn);
+    }
+  } else if (warn) warn.remove();
+
+  const su = document.getElementById('shareUrl');
+  if (su) su.textContent = location.origin + location.pathname + '?b=' + encBudget(b);
+}
+
 function resetBudget(){
-  if (!confirm('恢复成默认预算？你填的数字会清空。')) return;
+  if (!confirm('恢复成默认预算？你记的账和自定义类目都会清空。')) return;
   localStorage.removeItem(BD_KEY);
   document.getElementById('pane-budget').innerHTML = renderBudget();
   toast('已恢复默认');
@@ -1047,6 +1334,115 @@ function importShared(){
 function shareLink(){ return location.origin + location.pathname + '?b=' + encBudget(getBudget()); }
 function copyShare(){ copyText(shareLink()); }
 function openShare(){ window.open(shareLink(), '_blank'); }
+
+/* ═══════════════ 记事（时间线） ═══════════════ */
+const LOG_KEY = 'nz-trip-log-2026';
+const LOG_TAGS = ['备忘','已订','花费','提醒'];
+
+function getLog(){
+  try {
+    const a = JSON.parse(localStorage.getItem(LOG_KEY));
+    if (Array.isArray(a)) return a;
+  } catch(e){}
+  return [];
+}
+function saveLog(a){ localStorage.setItem(LOG_KEY, JSON.stringify(a)); }
+
+function pad(n){ return n < 10 ? '0' + n : '' + n; }
+function nowLocal(){
+  const d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
+       + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function dayKey(iso){ return (iso || '').slice(0,10); }
+function dayLabel(k){
+  if (!k) return '未填日期';
+  const [y,m,d] = k.split('-');
+  const dt = new Date(+y, +m - 1, +d);
+  const w = ['周日','周一','周二','周三','周四','周五','周六'][dt.getDay()];
+  return `${+m} 月 ${+d} 日 · ${w}`;
+}
+function timeLabel(iso){
+  const t = (iso || '').slice(11,16);
+  return t || '--:--';
+}
+
+function renderLog(){
+  const list = [...getLog()].sort((a,b) => (b.when || '').localeCompare(a.when || '') || (b.ts||0) - (a.ts||0));
+
+  const groups = [];
+  list.forEach(it => {
+    const k = dayKey(it.when);
+    let g = groups.find(x => x.k === k);
+    if (!g) { g = { k, items: [] }; groups.push(g); }
+    g.items.push(it);
+  });
+
+  const tl = groups.length ? groups.map(g => `
+    <div class="tl-day">
+      <div class="tl-date">${dayLabel(g.k)}</div>
+      ${g.items.map(it => `
+        <div class="tl-item" data-tag="${it.tag || '备忘'}">
+          <div class="tl-card">
+            <div class="tl-time">${timeLabel(it.when)}</div>
+            <div class="tl-text">${esc(it.text)}</div>
+            <div class="tl-meta">
+              <span class="tag">${it.tag || '备忘'}</span>
+              ${it.ts ? `<span>记于 ${new Date(it.ts).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+              <button class="tl-del" onclick="delLog('${it.id}')">删除</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('')
+    : `<div class="empty">还没有记录。<br>上面写一句，点「记下」，就会按时间排在这里。</div>`;
+
+  return `
+  <div class="hero" style="padding-bottom:14px">
+    <div class="eyebrow">Journal</div>
+    <h1 style="font-size:30px">记事</h1>
+    <div class="sub">这趟旅行发生的每件事，随手记一句，自动带时间。共 <b>${getLog().length}</b> 条。</div>
+  </div>
+
+  <div class="log-bar">
+    <textarea id="logText" placeholder="今天做了什么？比如：订好了南航机票，两个人往返 6980"></textarea>
+    <div class="log-row">
+      <input type="datetime-local" id="logWhen" value="${nowLocal()}">
+      <select id="logTag">${LOG_TAGS.map(t => `<option>${t}</option>`).join('')}</select>
+      <button class="btn nav" onclick="addLog()">记下</button>
+    </div>
+  </div>
+
+  <div id="tlList">${tl}</div>
+  `;
+}
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function addLog(){
+  const ta = document.getElementById('logText');
+  const text = (ta.value || '').trim();
+  if (!text) { toast('写点什么再记'); ta.focus(); return; }
+  const when = document.getElementById('logWhen').value || nowLocal();
+  const tag = document.getElementById('logTag').value;
+  const a = getLog();
+  a.push({ id:'l' + Date.now().toString(36), when, tag, text, ts: Date.now() });
+  saveLog(a);
+  document.getElementById('pane-log').innerHTML = renderLog();
+  const nt = document.getElementById('logText');
+  if (nt) nt.focus();
+  toast('已记下');
+}
+
+function delLog(id){
+  const a = getLog().filter(x => x.id !== id);
+  saveLog(a);
+  document.getElementById('pane-log').innerHTML = renderLog();
+  toast('已删除');
+}
 
 function copyText(txt){
   if (navigator.clipboard && window.isSecureContext) {
@@ -1176,6 +1572,7 @@ function paintPane(p){
     if (p === 'stay')   el.innerHTML = renderStays();
     if (p === 'bk')     el.innerHTML = renderBookings();
     if (p === 'budget') el.innerHTML = renderBudget();
+    if (p === 'log')    el.innerHTML = renderLog();
     if (p === 'note')   el.innerHTML = renderNotes();
   } catch (err) {
     console.error('[pane] render failed:', p, err);
@@ -1205,9 +1602,17 @@ document.querySelectorAll('.bnav button').forEach(b => {
     const target = document.getElementById('pane-' + p);
     paintPane(p);                                 // 先渲染，避免切过去是空白
     target.classList.add('active');
-    if (p === 'trip') { setTimeout(()=>map.invalidateSize(), 60); }
+
+    /* 地图和日期条只有行程页需要，其余页收起来 */
+    const mw = document.querySelector('.map-wrap');
+    const tabs = document.getElementById('tabs');
+    const isTrip = (p === 'trip');
+    if (mw) mw.style.display = isTrip ? '' : 'none';
+    if (tabs) tabs.style.display = isTrip ? '' : 'none';
+
+    if (isTrip) { setTimeout(()=>map.invalidateSize(), 60); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (p !== 'trip') setTimeout(()=>map.invalidateSize(), 120);
+    if (!isTrip) setTimeout(()=>map.invalidateSize(), 120);
   });
 });
 
