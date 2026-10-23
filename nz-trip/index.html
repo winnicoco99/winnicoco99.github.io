@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="NZ 12日">
 <meta name="theme-color" content="#f5f5f7">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=5">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -453,7 +453,7 @@ a { color: var(--accent); text-decoration: none; }
 
 <div id="toast"></div>
 
-<script src="data.js"></script>
+<script src="data.js?v=5"></script>
 <script>
 /* ═══════════════ 地图 ═══════════════ */
 const ALL_LATLNG = [];
@@ -1168,17 +1168,43 @@ tabsEl.addEventListener('click', e => {
 });
 
 /* 底部 tab */
+function paintPane(p){
+  const el = document.getElementById('pane-' + p);
+  if (!el) return;
+  if (p === 'trip') return;                      // 行程页常驻，不重绘
+  try {
+    if (p === 'stay')   el.innerHTML = renderStays();
+    if (p === 'bk')     el.innerHTML = renderBookings();
+    if (p === 'budget') el.innerHTML = renderBudget();
+    if (p === 'note')   el.innerHTML = renderNotes();
+  } catch (err) {
+    console.error('[pane] render failed:', p, err);
+    el.innerHTML = `<div class="hero"><div class="eyebrow">出错了</div>
+      <h1 style="font-size:26px">这一页没渲染出来</h1>
+      <div class="sub">多半是缓存了旧版本。点下面按钮强制刷新。</div></div>
+      <div style="padding:0 20px"><button class="btn nav" style="width:100%"
+        onclick="hardReload()">强制刷新到最新版</button></div>`;
+  }
+}
+async function hardReload(){
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) { await reg.update(); if (reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'}); }
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+  } catch(e){}
+  location.replace(location.pathname + location.search + '&_r=' + Date.now());
+}
+
 document.querySelectorAll('.bnav button').forEach(b => {
   b.addEventListener('click', () => {
     document.querySelectorAll('.bnav button').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     const p = b.dataset.pane;
     document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
-    document.getElementById('pane-' + p).classList.add('active');
-    if (p === 'stay')   document.getElementById('pane-stay').innerHTML   = renderStays();
-    if (p === 'bk')     document.getElementById('pane-bk').innerHTML     = renderBookings();
-    if (p === 'budget') document.getElementById('pane-budget').innerHTML = renderBudget();
-    if (p === 'note')   document.getElementById('pane-note').innerHTML   = renderNotes();
+    const target = document.getElementById('pane-' + p);
+    paintPane(p);                                 // 先渲染，避免切过去是空白
+    target.classList.add('active');
     if (p === 'trip') { setTimeout(()=>map.invalidateSize(), 60); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (p !== 'trip') setTimeout(()=>map.invalidateSize(), 120);

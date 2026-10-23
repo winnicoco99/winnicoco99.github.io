@@ -1,6 +1,6 @@
 /* 离线可用 + 行程更新立刻生效 */
-const VER = 'nz-trip-v4';
-const CORE = ['./', './index.html', './data.js', './manifest.json',
+const VER = 'nz-trip-v5';
+const CORE = ['./', './index.html', './data.js?v=5', './manifest.json?v=5',
   './icon-180.png', './icon-192.png', './icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'];
@@ -41,14 +41,17 @@ self.addEventListener('fetch', e => {
 
   if (url.origin !== location.origin) return;
 
-  /* 页面本体：网络优先 —— 行程一推送就拿到新的，断网时回落缓存 */
-  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+  /* 页面本体 + 行程数据：网络优先 —— 一推送就拿到新的，断网时回落缓存。
+     这两者必须同源同版本，否则会出现"页面是新的、数据是旧的"而白屏 */
+  const isDoc = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+  const isData = /\/data\.js/.test(url.pathname);
+  if (isDoc || isData) {
     e.respondWith(
       fetch(req).then(r => {
         const cp = r.clone();
-        caches.open(VER).then(c => c.put('./index.html', cp));
+        caches.open(VER).then(c => c.put(isDoc ? './index.html' : req, cp));
         return r;
-      }).catch(() => caches.match('./index.html'))
+      }).catch(() => caches.match(isDoc ? './index.html' : req))
     );
     return;
   }
