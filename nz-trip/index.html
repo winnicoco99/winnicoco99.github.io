@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>新西兰南岛 · 12日</title>
+<title>新西兰南岛 · 12晚</title>
 <meta name="description" content="2026.12.20–12.31 新西兰南岛自驾行程地图">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="NZ 12日">
+<meta name="apple-mobile-web-app-title" content="NZ 12晚">
 <meta name="theme-color" content="#f5f5f7">
-<link rel="manifest" href="manifest.json?v=5">
+<link rel="manifest" href="manifest.json?v=6">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -496,7 +496,7 @@ a { color: var(--accent); text-decoration: none; }
 <body>
 
 <div class="topbar" id="topbar">
-  <div class="brand"><span class="flag" style="background:#00247d;color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;border-radius:4px;padding:1px 4px;line-height:1.4">NZ</span><span id="barTitle">新西兰南岛 · 12日</span></div>
+  <div class="brand"><span class="flag" style="background:#00247d;color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;border-radius:4px;padding:1px 4px;line-height:1.4">NZ</span><span id="barTitle">新西兰南岛 · 12晚</span></div>
   <div class="seg"><div class="countdown" id="cd">—</div></div>
 </div>
 
@@ -537,7 +537,7 @@ a { color: var(--accent); text-decoration: none; }
 
 <div id="toast"></div>
 
-<script src="data.js?v=5"></script>
+<script src="data.js?v=6"></script>
 <script>
 /* ═══════════════ 地图 ═══════════════ */
 const ALL_LATLNG = [];
@@ -631,7 +631,7 @@ function pinIcon(color, emoji, big) {
   const s = big ? 30 : 26;
   return L.divIcon({
     className:'',
-    html:`<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${big?13:12}px;box-shadow:0 2px 8px rgba(0,0,0,.22)">${emoji||''}</div>`,
+    html:`<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center"><i style="width:${big?8:7}px;height:${big?8:7}px;border-radius:50%;background:rgba(255,255,255,.95);display:block"></i></div>`,
     iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2]
   });
 }
@@ -675,7 +675,11 @@ function showDay(idx){
     });
     // 住宿节点大标
     STAYS.forEach(s => {
-      if (s.lat) L.marker([s.lat, s.lng], { icon: pinIcon('#1d1d1f','🏨',true), zIndexOffset: 900 })
+      if (s.lat) L.marker([s.lat, s.lng], { zIndexOffset: 900, icon: L.divIcon({
+          className:'',
+          html:`<div style="width:30px;height:30px;border-radius:9px;background:#1d1d1f;border:2.5px solid #fff;box-shadow:0 2px 9px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center"><i style="width:9px;height:9px;border-radius:2.5px;background:#fff;display:block"></i></div>`,
+          iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-15]
+        }) })
         .addTo(layer).bindPopup(`<b>${s.city}</b><br><span style="color:#86868b;font-size:12px">${s.nights}</span>`);
     });
     if (pts.length) map.fitBounds(pts, { padding:[30,30] });
@@ -720,9 +724,9 @@ function renderOverview(){
     <div class="sub">${TRIP.hero}</div>
     <div class="meta">
       <div><span class="k">日期</span><span class="v">${TRIP.dateRange}</span></div>
-      <div><span class="k">天数</span><span class="v">12 天</span></div>
+      <div><span class="k">天数</span><span class="v">13 天 / 12 晚</span></div>
       <div><span class="k">方式</span><span class="v">自驾</span></div>
-      <div><span class="k">总里程</span><span class="v">≈1600 km</span></div>
+      <div><span class="k">总里程</span><span class="v">≈1700 km</span></div>
     </div>
   </div>
 
@@ -731,29 +735,29 @@ function renderOverview(){
   <div class="info-grid">
     <div class="info-card">
       <div class="label">路线</div>
-      <div class="value">基督城 → 皇后镇</div>
-      <div class="sm">东海岸进，西海岸出，不走回头路</div>
+      <div class="value">基督城 → 一圈 → 基督城</div>
+      <div class="sm">南下经库克山，东岸北上回来，不走回头路</div>
     </div>
     <div class="info-card">
       <div class="label">住宿节点</div>
       <div class="value">${STAYS.length} 处 / ${STAYS.reduce((t,s)=>t+s.n,0)} 晚</div>
-      <div class="sm">全部未订 · 12/31 当晚在飞机上</div>
+      <div class="sm">全部未订 · 1/3 夜航离境</div>
     </div>
     <div class="info-card">
-      <div class="label">最贵的两晚</div>
-      <div class="value">12/24 · 12/25</div>
-      <div class="sm">平安夜 & 圣诞夜，先订这两处</div>
+      <div class="label">最贵的一晚</div>
+      <div class="value">12/23 库克山</div>
+      <div class="sm">村里只有几百张床，先订这里</div>
     </div>
     <div class="info-card">
       <div class="label">驾驶提示</div>
       <div class="value">右舵 · 左侧行驶</div>
-      <div class="sm">山路口多，单日最长 430 km</div>
+      <div class="sm">山路弯多，单日最长 335 km</div>
     </div>
   </div>
 
   <div class="warn-box">
-    <b>还没订的：</b>机票 · 住宿 · 租车 · 冰川徒步 · 峡湾一日游 · 观星。点下方"预订"页有完整清单和先后顺序。
-    <br><b>最急的两件：</b>Tekapo 12/21–23 的房和 Franz Josef 12/24 的冰川徒步。旺季这两处最先没有。
+    <b>机票已出：</b>南航上海虹桥 ↔ 基督城，2 人 ¥16,428。剩下的住宿 · 租车 · 峡湾游船 · 企鹅归巢 · 半岛半日还没订，点下面"预订"页有完整清单和先后顺序。
+    <br><b>最急的两件：</b>库克山 12/23 的房（村里总共几百张床）和瓦纳卡 12/24–26 圣诞两晚。这两处最先没有。
   </div>
 
   <div class="section-head">每日概览</div>
@@ -832,10 +836,10 @@ function renderStays(){
   <div class="hero" style="padding-bottom:14px">
     <div class="eyebrow">Stay</div>
     <h1 style="font-size:30px">住哪里</h1>
-    <div class="sub">五个住宿节点，全部<b>未预订</b>。下面写的是"为什么住这儿"和"该搜什么"，不是具体酒店。</div>
+    <div class="sub">八个住宿节点，全部<b>未预订</b>。下面写的是"为什么住这儿"和"该搜什么"，不是具体酒店。</div>
   </div>
   <div class="warn-box">
-    <b>订房顺序：</b>① Tekapo（12/21–23，全镇房最少）② Franz Josef（12/24，冰川镇客房稀缺）③ 皇后镇（12/25–31，圣诞跨年峰值）④ 基督城（12/20，最容易）。
+    <b>订房顺序：</b>① 库克山（12/23，村里总共几百张床，最紧）② 瓦纳卡（12/24–26，圣诞两晚连着）③ 但尼丁（12/30–1/1，跨年夜爆满）④ 蒂阿瑙（12/28–30，峡湾唯一落脚点）⑤ 其余三个镇松一些。
   </div>
   ${STAYS.map(s => `
     <div class="stay-card">
@@ -862,9 +866,9 @@ function renderStays(){
     <ul>
       <li>新西兰汽车旅馆和公寓普遍有厨房，旺季自己做饭能省不少，也避开圣诞餐厅关门。</li>
       <li>确认是否含<b>免费停车位</b>。皇后镇和基督城 CBD 车位一晚 $25–40。</li>
-      <li>12/25 当天入住要提前跟房东确认拿钥匙方式，前台可能不上班。</li>
-      <li>取消政策优先选免费取消。冰川和峡湾都可能因天气改期，住宿留点余地。</li>
-      <li>皇后镇 12/31 晚市中心封路，住处离 Earnslaw Park 步行 15 分钟内最省心。</li>
+      <li>12/24 平安夜入住瓦纳卡，务必提前跟房东确认拿钥匙方式，圣诞期间前台多半不上班。</li>
+      <li>取消政策优先选免费取消。峡湾和库克山都可能因天气改期，住宿留点余地。</li>
+      <li>但尼丁 12/31 晚八角广场封路，住处步行 15 分钟内最省心。跨年餐厅要提前一周订。</li>
     </ul>
   </div>
   `;
@@ -897,13 +901,13 @@ function renderBookings(){
   <div class="section-head">预算粗估（2 人）</div>
   <div class="note-block">
     <ul>
-      <li><b>机票</b>　上海往返奥克兰 + 两段国内，旺季 2 人约 ¥18,000–26,000</li>
-      <li><b>住宿</b>　12 晚，圣诞跨年峰值，2 人约 NZ$6,000–9,000</li>
-      <li><b>租车</b>　11 天 SUV + 全险 + 异地还车，约 NZ$1,800–2,400</li>
-      <li><b>体验</b>　冰川徒步 ×2 + 峡湾 ×2 + 观星 ×2，约 NZ$2,400–3,000</li>
-      <li><b>油费</b>　1600 km，约 NZ$300–380</li>
-      <li><b>吃饭</b>　12 天，约 NZ$1,500–2,500</li>
-      <li style="padding-top:6px"><b>合计</b>　约 ¥9–13 万（2 人）</li>
+      <li><b>机票</b>　上海虹桥 ↔ 基督城（南航经广州），已出票 <b>¥16,428</b></li>
+      <li><b>住宿</b>　12 晚 / 8 个落脚点，圣诞峰值，约 NZ$3,200–4,200</li>
+      <li><b>租车</b>　12 天 SUV + 全险，同机场取还，约 NZ$1,400–1,900</li>
+      <li><b>体验</b>　峡湾游船 + 企鹅归巢 + 半岛 + 缆车，约 NZ$800–1,100</li>
+      <li><b>油费</b>　1700 km，约 NZ$220–280</li>
+      <li><b>吃饭</b>　13 天，含圣诞、跨年两顿贵的，约 NZ$1,200–1,700</li>
+      <li style="padding-top:6px"><b>合计</b>　约 <b>¥4.6–5.6 万</b>（2 人，含机票）</li>
     </ul>
   </div>
   `;
