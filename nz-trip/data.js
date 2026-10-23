@@ -7,7 +7,7 @@
 const TRIP = {
   title: '新西兰南岛',
   subtitle: '12 天 · 6 个住宿点 · 1600 km',
-  dateRange: '2026.12.20 — 12.31',
+  dateRange: '2026.12.20 — 2027.1.1',
   start: '2026-12-20T00:00:00+08:00',
   end: '2026-12-31T23:59:00+13:00',
   travelers: 2,
@@ -52,9 +52,9 @@ const STAYS = [
     tip: '全镇约 400 个常住人口，客房极少。12/24 必须提前锁死，否则要开 85 km 去 Fox。'
   },
   {
-    city: '皇后镇 Queenstown', nights: '12/25 — 12/31', n: 6,
+    city: '皇后镇 Queenstown', nights: '12/25 — 1/1', n: 7,
     area: '市中心步行圈（Shotover St / Beach St）',
-    why: '一住 6 晚不搬家。圣诞三晚全程步行不碰车，跨年夜走回住处比打车现实。同一家连住通常还能谈到折扣。',
+    why: '一住 7 晚不搬家，从圣诞节一直住到跨年。圣诞三晚全程步行不碰车，跨年夜走回住处比打车现实。同一家连住通常还能谈到折扣。',
     type: '公寓 / 精品酒店',
     price: '约 NZ$450–800 / 晚（圣诞跨年峰值）',
     booked: false,
@@ -168,7 +168,7 @@ const NOTE_SECTIONS = [
 /* ── 预算分类（金额单位 NZD，2 人合计）───────────── */
 const BUDGET_CATS = [
   { k:'flight', name:'机票',   icon:`<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>`, plan: 5100, note:'上海往返 + 奥克兰↔基督城、皇后镇→上海，2 人' },
-  { k:'stay',   name:'住宿',   icon:`<path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-6h6v6"/>`, plan: 6700, note:'11 晚，含圣诞跨年峰值' },
+  { k:'stay',   name:'住宿',   icon:`<path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-6h6v6"/>`, plan: 7600, note:'12 晚，含圣诞跨年峰值' },
   { k:'car',    name:'租车',   icon:`<path d="M5 17h14"/><path d="M6.5 17v2"/><path d="M17.5 17v2"/><path d="M4 17v-4l2-5h12l2 5v4z"/><circle cx="7.5" cy="14" r="1"/><circle cx="16.5" cy="14" r="1"/>`, plan: 2100, note:'11 天 SUV + 全险 + 异地还车' },
   { k:'exp',    name:'体验',   icon:`<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4z"/><path d="M13 7v10" stroke-dasharray="2 2"/>`, plan: 2700, note:'冰川徒步×2 + 峡湾×2 + 观星×2' },
   { k:'fuel',   name:'油费',   icon:`<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h12"/><path d="M4 10h10"/><path d="M14 8h2l3 3v7a2 2 0 0 0 2 2"/>`, plan:  340, note:'约 1600 km' },
@@ -561,7 +561,7 @@ const DAYS = [
     id: 12, label: 'D12 · 12/31', date: '12月31日 周四', title: '跨年',
     color: '#b8402e', region: 'Queenstown',
     drive: '不出城',
-    stay: '皇后镇（深夜）',
+    stay: '皇后镇（跨年夜，最后一晚）',
     summary: '白天轻，傍晚回住处休息，19:30 去湖边占位置。午夜烟花在湖上炸开。',
     route: '上午湖边 → 下午休息 → Earnslaw Park 跨年 → 午夜烟花',
     weather: '18–24℃，午夜约 12℃',

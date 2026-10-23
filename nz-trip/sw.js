@@ -1,5 +1,5 @@
 /* 离线可用 + 行程更新立刻生效 */
-const VER = 'nz-trip-v3';
+const VER = 'nz-trip-v4';
 const CORE = ['./', './index.html', './data.js', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
