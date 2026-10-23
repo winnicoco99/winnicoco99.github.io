@@ -560,7 +560,7 @@ DAYS.forEach(d => d.locations.forEach(l => l.lat && ALL_LATLNG.push([l.lat, l.ln
 
 const map = L.map('map', {
   center: [-44.0, 169.6], zoom: 6, zoomControl: false,
-  attributionControl: true, zoomSnap: .5, preferCanvas: true
+  attributionControl: true, zoomSnap: 1
 });
 L.control.zoom({ position: 'topright' }).addTo(map);
 
@@ -570,7 +570,7 @@ const TILE_BOUNDS = L.latLngBounds([-50.0, 161.0], [-37.0, 179.0]);
 const TRANSPARENT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 const localTiles = L.tileLayer('tiles/{z}/{x}/{y}.png', {
-  minZoom: 5, maxZoom: 11, bounds: TILE_BOUNDS,
+  minZoom: 5, maxZoom: 11,
   errorTileUrl: TRANSPARENT, attribution: '© Esri · © OpenStreetMap'
 }).addTo(map);
 
