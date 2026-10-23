@@ -42,6 +42,7 @@
   --radius-xl: 20px;
   --safe-top: env(safe-area-inset-top, 0px);
   --topbar-h: calc(var(--safe-top) + 52px);
+  --map-h: 46vh;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: dark) {
@@ -55,11 +56,14 @@
   .tabs { background: rgba(28,28,30,.82) !important; }
 }
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { background: var(--bg-secondary); min-height: 100%; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
   background: var(--bg-secondary);
   color: var(--text-primary);
   padding-top: var(--topbar-h);
+  min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   line-height: 1.47;
   letter-spacing: -0.018em;
@@ -90,8 +94,17 @@ a { color: var(--accent); text-decoration: none; }
 .countdown.live { background: rgba(52,199,89,.14); color:#1f9d43; }
 
 /* ── Map ── */
-#map { width:100%; height: 38vh; min-height: 260px; }
-.map-wrap { position: sticky; top: var(--topbar-h); z-index:100; }
+#map { width:100%; height: var(--map-h); min-height: 260px; }
+.leaflet-container { background: #e9edf0; }
+.map-wrap { position: sticky; top: var(--topbar-h); z-index:100; transition: none; }
+body.map-full .map-wrap {
+  position: fixed; top: var(--topbar-h); left:0; right:0;
+  height: calc(100dvh - var(--topbar-h)); z-index: 1250;
+  box-shadow: 0 18px 40px rgba(0,0,0,.22);
+}
+body.map-full #map { height: 100%; }
+body.map-full .tabs { display: none; }
+body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
 .locate-btn, .fit-btn {
   width:36px; height:36px; border-radius:9px; background: rgba(255,255,255,.92);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
@@ -107,7 +120,7 @@ a { color: var(--accent); text-decoration: none; }
   display:flex; gap:6px; padding: 10px 16px; overflow-x:auto;
   background: rgba(255,255,255,.88);
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-  position: sticky; top: calc(var(--topbar-h) + 38vh); z-index:99;
+  position: sticky; top: calc(var(--topbar-h) + var(--map-h)); z-index:99;
   border-bottom:.5px solid var(--separator);
   scrollbar-width:none;
 }
@@ -553,7 +566,7 @@ L.control.zoom({ position: 'topright' }).addTo(map);
 
 /* ── 底图：优先用打包进来的本地瓦片（离线可用、加载快）──
    覆盖范围 z5–z11，超出范围或放大到更高层级时才回落到网络瓦片。 */
-const TILE_BOUNDS = L.latLngBounds([-46.6, 164.8], [-41.9, 174.4]);
+const TILE_BOUNDS = L.latLngBounds([-50.0, 161.0], [-37.0, 179.0]);
 const TRANSPARENT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 const localTiles = L.tileLayer('tiles/{z}/{x}/{y}.png', {
@@ -603,17 +616,34 @@ localTiles.on('tileerror', () => {
 localTiles.on('tileload', () => { errCount = 0; });
 map.on('zoomend', () => { if (map.getZoom() > 11) enableNetTiles(); });
 
-/* 定位按钮 */
+/* 地图控件：显示全部 / 全屏 / 定位 */
+const ICON = {
+  fit:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8M21 8V5.5A2.5 2.5 0 0 0 18.5 3H16M3 16v2.5A2.5 2.5 0 0 0 5.5 21H8M21 16v2.5A2.5 2.5 0 0 1 18.5 21H16"/></svg>',
+  full: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M21 9V3h-6M3 15v6h6M15 21h6v-6"/></svg>',
+  shrink:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h6V3M15 3v6h6M21 15h-6v6M9 21v-6H3"/></svg>',
+  loc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg>'
+};
+function svgIcon(el, key){
+  el.innerHTML = ICON[key];
+  el.querySelector('svg').style.width = '17px';
+  el.querySelector('svg').style.height = '17px';
+}
 const LocateControl = L.Control.extend({
   options: { position: 'bottomright' },
   onAdd() {
     const wrap = L.DomUtil.create('div', '');
     const fit = L.DomUtil.create('button', 'fit-btn', wrap);
-    fit.innerHTML = '⤢'; fit.title = '显示全部';
+    svgIcon(fit, 'fit'); fit.title = '显示全部';
     L.DomEvent.disableClickPropagation(fit);
     fit.addEventListener('click', () => fitAll());
+
+    const full = L.DomUtil.create('button', 'fit-btn', wrap);
+    svgIcon(full, 'full'); full.title = '全屏地图';
+    L.DomEvent.disableClickPropagation(full);
+    full.addEventListener('click', () => toggleMapFull(full));
+
     const btn = L.DomUtil.create('button', 'locate-btn', wrap);
-    btn.innerHTML = '📍'; btn.title = '我的位置';
+    svgIcon(btn, 'loc'); btn.title = '我的位置';
     L.DomEvent.disableClickPropagation(btn);
     btn.addEventListener('click', () => { btn.classList.add('active'); map.locate({ setView: true, maxZoom: 14 }); });
     this._btn = btn;
@@ -621,6 +651,17 @@ const LocateControl = L.Control.extend({
   }
 });
 new LocateControl().addTo(map);
+
+function toggleMapFull(btn){
+  const on = document.body.classList.toggle('map-full');
+  svgIcon(btn, on ? 'shrink' : 'full');
+  btn.title = on ? '收起地图' : '全屏地图';
+  if (on) enableNetTiles();
+  const relayout = () => { map.invalidateSize(); if (on) map.fitBounds(ALL_LATLNG, { padding:[10,10] }); };
+  requestAnimationFrame(relayout);
+  setTimeout(relayout, 120);
+  setTimeout(relayout, 360);
+}
 
 let locMarker, locCircle;
 map.on('locationfound', e => {
