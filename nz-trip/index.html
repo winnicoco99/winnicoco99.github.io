@@ -310,6 +310,69 @@ a { color: var(--accent); text-decoration: none; }
 .ck-item.on .ck-box { background: var(--tint-green); border-color: var(--tint-green); }
 .ck-item.on .ck-txt { color: var(--text-tertiary); text-decoration: line-through; }
 
+/* ── Budget ── */
+.bd-top { display:flex; gap:10px; margin-bottom:14px; }
+.bd-top > div { flex:1; background: var(--bg-elevated); border-radius: var(--radius-lg); padding:14px 16px; box-shadow: var(--shadow-sm); }
+.bd-top .label { font-size:10.5px; font-weight:700; color:var(--text-tertiary); letter-spacing:.05em; text-transform:uppercase; }
+.bd-top input {
+  border:none; background:none; font-size:22px; font-weight:800; letter-spacing:-.03em;
+  width:100%; font-family:inherit; color:var(--text-primary); outline:none;
+  font-variant-numeric: tabular-nums; padding:2px 0 0;
+}
+.bd-top .unit { font-size:12px; color:var(--text-secondary); font-weight:600; }
+
+.bd-row { background: var(--bg-elevated); border-radius: var(--radius-md); padding:13px 15px; box-shadow: var(--shadow-sm); margin-bottom:8px; }
+.bd-row .h { display:flex; align-items:center; gap:9px; }
+.bd-row .ic { width:26px; height:26px; border-radius:8px; background: var(--bg-grouped); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.bd-row .nm { font-size:15px; font-weight:700; letter-spacing:-.02em; flex:1; }
+.bd-row .amt { display:flex; align-items:baseline; gap:4px; }
+.bd-row .amt input {
+  border:none; background:none; width:74px; text-align:right; font-size:15px; font-weight:700;
+  font-family:inherit; color:var(--text-primary); outline:none; font-variant-numeric: tabular-nums;
+  border-bottom:1px dashed var(--separator); padding:1px 2px;
+}
+.bd-row .amt input:focus { border-bottom-color: var(--accent); }
+.bd-row .cur { font-size:11px; color:var(--text-tertiary); font-weight:600; }
+.bd-row .note { font-size:11.5px; color:var(--text-tertiary); margin-top:5px; padding-left:35px; }
+.bd-bar { height:5px; border-radius:3px; background: var(--bg-grouped); margin-top:9px; overflow:hidden; }
+.bd-bar i { display:block; height:100%; border-radius:3px; transition: width .35s ease; }
+.bd-bar i.over { background: var(--tint-red) !important; }
+.bd-pct { font-size:11px; font-weight:700; color:var(--text-tertiary); }
+
+.bd-total { background: var(--text-primary); color: var(--bg-secondary); border-radius: var(--radius-lg); padding:18px; margin: 16px 0 12px; }
+.bd-total .big { font-size:32px; font-weight:800; letter-spacing:-.035em; font-variant-numeric: tabular-nums; line-height:1.1; }
+.bd-total .cap { font-size:11.5px; font-weight:700; opacity:.6; letter-spacing:.05em; text-transform:uppercase; }
+.bd-total .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:14px; padding-top:14px; border-top:.5px solid rgba(255,255,255,.18); }
+.bd-total .grid div .k { font-size:10px; opacity:.6; font-weight:700; letter-spacing:.04em; }
+.bd-total .grid div .v { font-size:15px; font-weight:800; letter-spacing:-.02em; font-variant-numeric: tabular-nums; margin-top:1px; }
+
+.share-box { background: var(--bg-elevated); border-radius: var(--radius-md); padding:13px 15px; box-shadow: var(--shadow-sm); margin-bottom:10px; }
+.share-box .url {
+  font-size:11px; color:var(--text-secondary); background: var(--bg-grouped);
+  border-radius:8px; padding:9px 10px; margin:9px 0; word-break:break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height:1.45;
+}
+.banner {
+  display:flex; align-items:center; gap:8px; padding:11px 14px; border-radius: var(--radius-md);
+  font-size:13px; font-weight:600; margin-bottom:12px; line-height:1.45;
+}
+.banner.info { background: rgba(0,113,227,.08); color: var(--accent); }
+.banner.warn { background: rgba(255,149,0,.1); color: #b37600; }
+.banner button { margin-left:auto; border:none; background:none; color:inherit; font-weight:800; font-size:13px; font-family:inherit; cursor:pointer; white-space:nowrap; }
+
+/* 新版本提示 */
+#upd {
+  position: fixed; left:50%; transform: translate(-50%, -80px);
+  top: calc(var(--safe-top) + 56px); z-index:1300;
+  background: rgba(29,29,31,.94); color:#fff; padding:9px 16px; border-radius:980px;
+  font-size:13px; font-weight:700; display:flex; align-items:center; gap:9px;
+  box-shadow: var(--shadow-lg); opacity:0; pointer-events:none; transition: all .34s;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); max-width: 92vw;
+}
+#upd.show { opacity:1; transform: translate(-50%,0); pointer-events:auto; }
+#upd button { border:none; background:#fff; color:#1d1d1f; font-weight:800; font-size:12.5px; padding:5px 12px; border-radius:980px; font-family:inherit; cursor:pointer; }
+#upd .x { background:none; color:rgba(255,255,255,.6); padding:2px 4px; font-size:15px; }
+
 /* ── Notes ── */
 .note-block { background: var(--bg-elevated); border-radius: var(--radius-lg); padding:16px 18px; box-shadow: var(--shadow-sm); margin-bottom:12px; }
 .note-block h3 { font-size:15px; font-weight:800; letter-spacing:-.02em; margin-bottom:8px; }
@@ -346,12 +409,14 @@ a { color: var(--accent); text-decoration: none; }
   z-index:3000; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
 #toast.show { opacity:1; transform: translate(-50%, 0); }
+/* 分类图标：SVG，不依赖 emoji 字体 */
+.bd-row .ic svg { width:15px; height:15px; stroke: currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
 </style>
 </head>
 <body>
 
 <div class="topbar" id="topbar">
-  <div class="brand"><span class="flag">🇳🇿</span><span id="barTitle">新西兰南岛 · 12日</span></div>
+  <div class="brand"><span class="flag" style="background:#00247d;color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;border-radius:4px;padding:1px 4px;line-height:1.4">NZ</span><span id="barTitle">新西兰南岛 · 12日</span></div>
   <div class="seg"><div class="countdown" id="cd">—</div></div>
 </div>
 
@@ -364,6 +429,7 @@ a { color: var(--accent); text-decoration: none; }
   <div class="pane active" id="pane-trip"></div>
   <div class="pane" id="pane-stay"></div>
   <div class="pane" id="pane-bk"></div>
+  <div class="pane" id="pane-budget"></div>
   <div class="pane" id="pane-note"></div>
 </div>
 
@@ -376,6 +442,9 @@ a { color: var(--accent); text-decoration: none; }
   </button>
   <button data-pane="bk">
     <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>预订
+  </button>
+  <button data-pane="budget">
+    <svg viewBox="0 0 24 24"><path d="M12 3.5v17M8 7.5h6.5a2.5 2.5 0 0 1 0 5H9.5m0 0h6.5a2.5 2.5 0 0 1 0 5H8"/><path d="M17.5 3.5H6a2.5 2.5 0 0 0 0 17h11.5"/></svg>预算
   </button>
   <button data-pane="note">
     <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9.5L13 21H5a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 5 4.5z"/><path d="M13 21v-5h5M8 9h8M8 13h5"/></svg>清单
@@ -482,7 +551,7 @@ function pinIcon(color, emoji, big) {
     iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2]
   });
 }
-const EMOJI = { food:'🍽', spot:'📍', hotel:'🏨', transport:'🚗', drink:'🍷' };
+const EMOJI = { food:'🍴', spot:'●', hotel:'🏠', transport:'⛟', drink:'🍷' };
 
 let layer = L.layerGroup().addTo(map);
 
@@ -498,7 +567,7 @@ function popupHtml(l, day){
   <div style="color:#86868b;font-size:12px;margin-top:1px">${day.label} · ${l.time!=='—'?l.time:'备选'}</div>
   <div style="margin-top:6px;font-size:12.5px;line-height:1.45;color:#3a3a3c">${l.desc}</div>
   <div style="margin-top:8px;display:flex;gap:8px">
-    <a href="#" onclick="event.preventDefault();openAS(${l.lat},${l.lng},'${(l.name||'').replace(/'/g,"\\'")}')" style="font-weight:700;font-size:12.5px">📍 导航</a>
+    <a href="#" onclick="event.preventDefault();openAS(${l.lat},${l.lng},'${(l.name||'').replace(/'/g,"\\'")}')" style="font-weight:700;font-size:12.5px">➤ 导航</a>
     <a href="#" onclick="event.preventDefault();copyLoc(${l.lat},${l.lng},'${(l.name||'').replace(/'/g,"\\'")}')" style="font-weight:700;font-size:12.5px;color:#86868b">复制坐标</a>
   </div>`;
 }
@@ -628,7 +697,7 @@ function renderDay(idx){
   const card = l => {
     const uid = `d${idx}-${(l.name||'').replace(/\W/g,'')}`;
     const label = { food:['餐','food'], spot:['景','spot'], drink:['饮','drink'], hotel:['宿','hotel'], transport:['车','transport'] }[l.type] || ['·','spot'];
-    let btns = `<button class="btn nav" onclick="openAS(${l.lat},${l.lng},'${(l.name||'').replace(/'/g,"\\'")}')">📍 导航</button>`;
+    let btns = `<button class="btn nav" onclick="openAS(${l.lat},${l.lng},'${(l.name||'').replace(/'/g,"\\'")}')">➤ 导航</button>`;
     btns += `<button class="btn" onclick="copyLoc(${l.lat},${l.lng},'${(l.name||'').replace(/'/g,"\\'")}')">复制坐标</button>`;
     if (l.type === 'food' || l.type === 'drink') {
       btns += `<a class="btn dp" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.name)}" target="_blank">看评价</a>`;
@@ -653,9 +722,9 @@ function renderDay(idx){
     <div class="dd">${d.date}</div>
     <div class="sum">${d.summary}</div>
     <div class="chips">
-      <div class="chip">🚗 <b>${d.drive}</b></div>
-      <div class="chip">🏨 <b>${d.stay}</b></div>
-      <div class="chip">🌤 <b>${d.weather}</b></div>
+      <div class="chip">⛟ <b>${d.drive}</b></div>
+      <div class="chip">🛏 <b>${d.stay}</b></div>
+      <div class="chip">☀ <b>${d.weather}</b></div>
     </div>
   </div>
 
@@ -754,6 +823,242 @@ function renderBookings(){
     </ul>
   </div>
   `;
+}
+
+/* ═══════════════ 预算 ═══════════════ */
+const BD_KEY = 'nz-trip-budget-2026';
+const COLORS = { flight:'#007aff', stay:'#ff9500', car:'#34c759', exp:'#af52de', fuel:'#30b0c7', food:'#ff3b30', other:'#8e8e93' };
+
+function defaultBudget(){
+  const p = {}, a = {};
+  BUDGET_CATS.forEach(c => { p[c.k] = c.plan; a[c.k] = 0; });
+  return { plan:p, act:a, rate: DEFAULT_RATE };
+}
+function getBudget(){
+  try {
+    const s = JSON.parse(localStorage.getItem(BD_KEY));
+    if (s && s.plan && s.act) return s;
+  } catch(e){}
+  return defaultBudget();
+}
+function saveBudget(b){ localStorage.setItem(BD_KEY, JSON.stringify(b)); }
+
+/* 分享编码：把预算压成一段短字符串放进 URL */
+function encBudget(b){
+  const nums = [b.rate, ...BUDGET_CATS.map(c => b.plan[c.k]||0), ...BUDGET_CATS.map(c => b.act[c.k]||0)];
+  const s = nums.join(',');
+  try { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  catch(e){ return ''; }
+}
+function decBudget(str){
+  try {
+    const s = decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
+    const n = s.split(',').map(Number);
+    if (n.length !== 1 + BUDGET_CATS.length*2 || n.some(isNaN)) return null;
+    const plan = {}, act = {};
+    BUDGET_CATS.forEach((c,i) => { plan[c.k] = n[1+i]; act[c.k] = n[1+BUDGET_CATS.length+i]; });
+    return { plan, act, rate: n[0] || DEFAULT_RATE };
+  } catch(e){ return null; }
+}
+
+/* 被分享进来的只读预算 */
+let SHARED = null;
+try {
+  const q = new URLSearchParams(location.search).get('b')
+         || (location.hash.match(/b=([A-Za-z0-9_-]+)/) || [])[1];
+  if (q) SHARED = decBudget(q);
+} catch(e){}
+
+const fmt = n => (Math.round(n)).toLocaleString('en-US');
+const toCNY = (n, rate) => n * rate;
+
+function renderBudget(){
+  const b = SHARED || getBudget();
+  const ro = !!SHARED;                       // 只读模式
+  const dis = ro ? 'disabled' : '';
+
+  const sum = o => BUDGET_CATS.reduce((t,c) => t + (o[c.k] || 0), 0);
+  const tPlan = sum(b.plan), tAct = sum(b.act);
+  const paid = tAct > 0;
+  const left = tPlan - tAct;
+
+  const rows = BUDGET_CATS.map(c => {
+    const p = b.plan[c.k] || 0, a = b.act[c.k] || 0;
+    const pct = p > 0 ? Math.min(100, a / p * 100) : 0;
+    const over = a > p && p > 0;
+    return `<div class="bd-row">
+      <div class="h">
+        <div class="ic" style="color:${COLORS[c.k]}"><svg viewBox="0 0 24 24">${c.icon}</svg></div>
+        <div class="nm">${c.name}<span class="bd-pct" style="margin-left:6px">${p>0?Math.round(a/p*100):0}%</span></div>
+        <div class="amt">
+          <input type="number" inputmode="decimal" value="${a||''}" placeholder="0"
+            data-k="${c.k}" data-f="act" oninput="bdInput(this)" ${dis}>
+          <span class="cur">/</span>
+          <input type="number" inputmode="decimal" value="${p||''}" placeholder="0"
+            data-k="${c.k}" data-f="plan" oninput="bdInput(this)" ${dis}>
+          <span class="cur">NZ$</span>
+        </div>
+      </div>
+      <div class="bd-bar"><i class="${over?'over':''}" style="width:${pct}%;background:${over?'':COLORS[c.k]}"></i></div>
+      <div class="note">${c.note}${p?`　·　预算 ${fmt(p)} NZ$ ≈ ¥${fmt(toCNY(p,b.rate))}`:''}</div>
+    </div>`;
+  }).join('');
+
+  const shareUrl = location.origin + location.pathname + '?b=' + encBudget(getBudget());
+
+  return `
+  <div class="hero" style="padding-bottom:14px">
+    <div class="eyebrow">Budget</div>
+    <h1 style="font-size:30px">预算</h1>
+    <div class="sub">左边填<b>已花</b>，右边是<b>预算</b>，单位 NZ$。数据存在本机，不上传。</div>
+  </div>
+
+  ${ro ? `<div class="banner info"><b>→</b> 这是别人分享给你的预算（只读）
+    <button onclick="importShared()">存为我的</button></div>` : ''}
+
+  <div class="bd-top">
+    <div>
+      <div class="label">汇率 1 NZ$ =</div>
+      <input type="number" inputmode="decimal" step="0.01" value="${b.rate}" oninput="bdRate(this)" ${dis}>
+      <div class="unit">人民币 ¥</div>
+    </div>
+    <div>
+      <div class="label">同行人数</div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;padding-top:2px">${TRIP_PEOPLE} 人</div>
+      <div class="unit">共 ${TRIP_DAYS} 天</div>
+    </div>
+  </div>
+
+  <div class="bd-total">
+    <div class="cap">已花费</div>
+    <div class="big">NZ$ ${fmt(tAct)}</div>
+    <div style="font-size:13px;opacity:.65;margin-top:2px">≈ ¥ ${fmt(toCNY(tAct, b.rate))}　·　预算 NZ$ ${fmt(tPlan)}</div>
+    <div class="grid">
+      <div><div class="k">剩余</div><div class="v">${fmt(left<0?0:left)}</div></div>
+      <div><div class="k">人均已花</div><div class="v">${fmt(tAct/TRIP_PEOPLE)}</div></div>
+      <div><div class="k">日均已花</div><div class="v">${fmt(paid ? tAct/TRIP_DAYS : tPlan/TRIP_DAYS)}</div></div>
+    </div>
+  </div>
+
+  ${left < 0 ? `<div class="banner warn">⚠️ 已超预算 NZ$ ${fmt(-left)}（≈ ¥${fmt(toCNY(-left,b.rate))}）</div>` : ''}
+
+  <div class="section-head">分类明细 <span class="more">已花 / 预算</span></div>
+  ${rows}
+
+  ${ro ? `
+    <div class="section-head">说明</div>
+    <div class="note-block"><ul>
+      <li>你看到的是对方生成分享链接那一刻的预算快照，<b>不会随对方改动而变</b>。</li>
+      <li>想要自己记，点顶部「存为我的」，之后就存在你手机上了。</li>
+      <li>想看最新数据，让对方重新发一个链接。</li>
+    </ul></div>`
+  : `
+    <div class="section-head">分享给同行的人</div>
+    <div class="share-box">
+      <div style="font-size:13.5px;line-height:1.55">把这个链接发给他，他打开就能看到下面这份预算（只读）。<b>他改不了你的，你之后的改动也不会自动同步过去</b>——需要就重新发一次。</div>
+      <div class="url" id="shareUrl">${shareUrl}</div>
+      <div class="links">
+        <button class="btn nav" onclick="copyShare()">复制链接</button>
+        <button class="btn" onclick="openShare()">预览</button>
+        <button class="btn" onclick="resetBudget()">恢复默认</button>
+      </div>
+    </div>
+
+    <div class="section-head">为什么不能自动同步</div>
+    <div class="note-block"><ul>
+      <li>这个页面是纯静态的，没有服务器，所以<b>没有"对方改了我也变"这回事</b>——各人的数据都存在各自手机里。</li>
+      <li>好消息是<b>行程内容会自动更新</b>：我改了行程推上去，你们各自打开时会自动拉到最新版（顶部会提示"有新版本"）。</li>
+      <li>只有预算和清单这类自己填的数据是各自的。要真正多人共编得接云端数据库，对一个旅行页面太重了。</li>
+    </ul></div>`}
+  `;
+}
+
+function bdInput(el){
+  if (SHARED) return;
+  const b = getBudget();
+  const k = el.dataset.k, f = el.dataset.f;
+  b[f][k] = parseFloat(el.value) || 0;
+  saveBudget(b);
+  // 只更新汇总，不重绘输入框（避免光标跳走）
+  const sum = o => BUDGET_CATS.reduce((t,c) => t + (o[c.k]||0), 0);
+  const tAct = sum(b.act), tPlan = sum(b.plan);
+  const box = document.querySelector('.bd-total');
+  const cat = BUDGET_CATS.find(c=>c.k===k);
+  const p = b.plan[k]||0, a = b.act[k]||0;
+  const row = el.closest('.bd-row');
+  const bar = row.querySelector('.bd-bar i');
+  const over = a > p && p > 0;
+  bar.style.width = (p>0 ? Math.min(100, a/p*100) : 0) + '%';
+  bar.className = over ? 'over' : '';
+  if (!over) bar.style.background = COLORS[k];
+  row.querySelector('.bd-pct').textContent = (p>0?Math.round(a/p*100):0) + '%';
+  const note = row.querySelector('.note');
+  note.innerHTML = `${cat.note}${p?`　·　预算 ${fmt(p)} NZ$ ≈ ¥${fmt(toCNY(p,b.rate))}`:''}`;
+  const left = tPlan - tAct;
+  box.querySelector('.big').textContent = 'NZ$ ' + fmt(tAct);
+  box.children[2].innerHTML = `≈ ¥ ${fmt(toCNY(tAct,b.rate))}　·　预算 NZ$ ${fmt(tPlan)}`;
+  const vs = box.querySelectorAll('.grid .v');
+  vs[0].textContent = fmt(left<0?0:left);
+  vs[1].textContent = fmt(tAct/TRIP_PEOPLE);
+  vs[2].textContent = fmt(tAct>0 ? tAct/TRIP_DAYS : tPlan/TRIP_DAYS);
+  let warn = document.querySelector('.banner.warn');
+  if (left < 0) {
+    const txt = `⚠️ 已超预算 NZ$ ${fmt(-left)}（≈ ¥${fmt(toCNY(-left,b.rate))}）`;
+    if (warn) warn.innerHTML = txt;
+    else {                                   // 首次超支 → 动态插入
+      warn = document.createElement('div');
+      warn.className = 'banner warn';
+      warn.innerHTML = txt;
+      box.insertAdjacentElement('afterend', warn);
+    }
+  } else if (warn) warn.remove();
+  const su = document.getElementById('shareUrl');
+  if (su) su.textContent = location.origin + location.pathname + '?b=' + encBudget(b);
+}
+function bdRate(el){
+  if (SHARED) return;
+  const b = getBudget();
+  b.rate = parseFloat(el.value) || DEFAULT_RATE;
+  saveBudget(b);
+  const sum = o => BUDGET_CATS.reduce((t,c) => t + (o[c.k]||0), 0);
+  const box = document.querySelector('.bd-total');
+  box.children[2].innerHTML = `≈ ¥ ${fmt(toCNY(sum(b.act),b.rate))}　·　预算 NZ$ ${fmt(sum(b.plan))}`;
+  BUDGET_CATS.forEach(c => {
+    const p = b.plan[c.k]||0;
+    const row = document.querySelector(`.bd-row input[data-k="${c.k}"][data-f="plan"]`).closest('.bd-row');
+    row.querySelector('.note').innerHTML = `${c.note}${p?`　·　预算 ${fmt(p)} NZ$ ≈ ¥${fmt(toCNY(p,b.rate))}`:''}`;
+  });
+}
+function resetBudget(){
+  if (!confirm('恢复成默认预算？你填的数字会清空。')) return;
+  localStorage.removeItem(BD_KEY);
+  document.getElementById('pane-budget').innerHTML = renderBudget();
+  toast('已恢复默认');
+}
+function importShared(){
+  if (!SHARED) return;
+  saveBudget(SHARED);
+  const u = new URL(location.href); u.searchParams.delete('b');
+  history.replaceState({}, '', u.pathname + u.hash);
+  SHARED = null;
+  document.getElementById('pane-budget').innerHTML = renderBudget();
+  toast('已存为你的预算');
+}
+function shareLink(){ return location.origin + location.pathname + '?b=' + encBudget(getBudget()); }
+function copyShare(){ copyText(shareLink()); }
+function openShare(){ window.open(shareLink(), '_blank'); }
+
+function copyText(txt){
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(txt).then(()=>toast('链接已复制')).catch(()=>fb(txt));
+  } else fb(txt);
+  function fb(t){
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('链接已复制'); } catch(e){ toast('长按链接手动复制'); }
+    document.body.removeChild(ta);
+  }
 }
 
 /* ── 清单 ── */
@@ -870,9 +1175,10 @@ document.querySelectorAll('.bnav button').forEach(b => {
     const p = b.dataset.pane;
     document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
     document.getElementById('pane-' + p).classList.add('active');
-    if (p === 'stay') document.getElementById('pane-stay').innerHTML = renderStays();
-    if (p === 'bk')   document.getElementById('pane-bk').innerHTML   = renderBookings();
-    if (p === 'note') document.getElementById('pane-note').innerHTML = renderNotes();
+    if (p === 'stay')   document.getElementById('pane-stay').innerHTML   = renderStays();
+    if (p === 'bk')     document.getElementById('pane-bk').innerHTML     = renderBookings();
+    if (p === 'budget') document.getElementById('pane-budget').innerHTML = renderBudget();
+    if (p === 'note')   document.getElementById('pane-note').innerHTML   = renderNotes();
     if (p === 'trip') { setTimeout(()=>map.invalidateSize(), 60); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (p !== 'trip') setTimeout(()=>map.invalidateSize(), 120);
@@ -967,8 +1273,54 @@ function fallbackCopy(txt, cb){
 go(0);
 setTimeout(()=>map.invalidateSize(), 200);
 
+/* ═══════════════ 新版本提示 ═══════════════ */
+let newWorker = null;
+const updEl = document.createElement('div');
+updEl.id = 'upd';
+updEl.innerHTML = `<span>有新版本</span><button onclick="applyUpdate()">更新</button><button class="x" onclick="updEl.classList.remove('show')">×</button>`;
+document.body.appendChild(updEl);
+
+function applyUpdate(){
+  if (newWorker) newWorker.postMessage({ type:'SKIP_WAITING' });
+  window.location.reload();
+}
+
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          updEl.classList.add('show');
+        }
+      });
+    });
+    // 每次回到前台检查一次
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update(); });
+    setInterval(() => reg.update(), 30 * 60 * 1000);
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (window._reloaded) return;
+    window._reloaded = true;
+    window.location.reload();
+  });
+}
+
+/* 带分享参数进来时直接落到预算页 */
+if (SHARED) {
+  document.querySelectorAll('.bnav button').forEach(x => x.classList.remove('active'));
+  document.querySelector('.bnav button[data-pane="budget"]').classList.add('active');
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+  const pb = document.getElementById('pane-budget');
+  pb.classList.add('active');
+  pb.innerHTML = renderBudget();
+  document.getElementById('barTitle').textContent = '共享预算';
+  // 只读分享页不显示行程地图，省得占掉半屏
+  const mw = document.querySelector('.map-wrap');
+  if (mw) mw.style.display = 'none';
+  const tabs = document.getElementById('tabs');
+  if (tabs) tabs.style.display = 'none';
+  document.body.classList.add('shared-mode');
 }
 </script>
 </body>

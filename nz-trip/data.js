@@ -165,6 +165,20 @@ const NOTE_SECTIONS = [
   }
 ];
 
+/* ── 预算分类（金额单位 NZD，2 人合计）───────────── */
+const BUDGET_CATS = [
+  { k:'flight', name:'机票',   icon:`<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>`, plan: 5100, note:'上海往返 + 奥克兰↔基督城、皇后镇→上海，2 人' },
+  { k:'stay',   name:'住宿',   icon:`<path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-6h6v6"/>`, plan: 6700, note:'11 晚，含圣诞跨年峰值' },
+  { k:'car',    name:'租车',   icon:`<path d="M5 17h14"/><path d="M6.5 17v2"/><path d="M17.5 17v2"/><path d="M4 17v-4l2-5h12l2 5v4z"/><circle cx="7.5" cy="14" r="1"/><circle cx="16.5" cy="14" r="1"/>`, plan: 2100, note:'11 天 SUV + 全险 + 异地还车' },
+  { k:'exp',    name:'体验',   icon:`<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4z"/><path d="M13 7v10" stroke-dasharray="2 2"/>`, plan: 2700, note:'冰川徒步×2 + 峡湾×2 + 观星×2' },
+  { k:'fuel',   name:'油费',   icon:`<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h12"/><path d="M4 10h10"/><path d="M14 8h2l3 3v7a2 2 0 0 0 2 2"/>`, plan:  340, note:'约 1600 km' },
+  { k:'food',   name:'吃饭',   icon:`<path d="M6 3v8a2 2 0 0 0 4 0V3"/><path d="M8 11v10"/><path d="M17 3c-1.5 1.5-2 3.5-2 6 0 2 .5 3 2 3s2-1 2-3c0-2.5-.5-4.5-2-6z"/><path d="M17 12v9"/>`, plan: 2000, note:'12 天，含圣诞自备两餐' },
+  { k:'other',  name:'其他',   icon:`<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>`, plan:  800, note:'门票 / 停车 / 伴手礼' }
+];
+const DEFAULT_RATE = 4.3;   // 1 NZD ≈ ? CNY，可在页面里改
+const TRIP_PEOPLE = 2;
+const TRIP_DAYS = 12;
+
 /* ── 每日行程 ───────────────────────────────────── */
 const DAYS = [
   {
