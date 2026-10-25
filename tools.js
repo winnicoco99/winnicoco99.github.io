@@ -75,7 +75,7 @@ window.TOOLS = [
     path: 'nz-map/',
     name: '南岛路线图',
     desc: '一页看完 12 天，手绘轮廓 + 每日一览表',
-    icon: '◇',
+    icon: '▦',
     tag: '2026'
   }
 
