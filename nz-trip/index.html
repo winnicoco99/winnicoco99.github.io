@@ -42,7 +42,7 @@
   --radius-xl: 20px;
   --safe-top: env(safe-area-inset-top, 0px);
   --topbar-h: calc(var(--safe-top) + 52px);
-  --map-h: 46vh;
+  --map-h: 34vh;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: dark) {
@@ -651,6 +651,11 @@ const LocateControl = L.Control.extend({
   }
 });
 new LocateControl().addTo(map);
+
+map.on('dblclick', () => {
+  const b = document.querySelectorAll('.fit-btn')[1];
+  if (b) toggleMapFull(b);
+});
 
 function toggleMapFull(btn){
   const on = document.body.classList.toggle('map-full');
