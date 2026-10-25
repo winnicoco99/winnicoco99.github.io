@@ -183,8 +183,8 @@ body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
 .dchip .d { font-size:19px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
 .dchip .w { font-size:10px; color:var(--text-tertiary); font-weight:600; }
 .dchip .c { width:6px; height:6px; border-radius:50%; margin-top:4px; }
-.dchip.hot { background: var(--text-primary); color: var(--bg-secondary); }
-.dchip.hot .w { color: rgba(255,255,255,.6); }
+.dchip.hot { background: rgba(255,59,48,.07); color: var(--tint-red); box-shadow: inset 0 0 0 1px rgba(255,59,48,.26); }
+.dchip.hot .w { color: rgba(255,59,48,.6); }
 .dchip.now { outline: 2px solid var(--tint-red); outline-offset: -2px; }
 
 /* ── Cards ── */
@@ -761,7 +761,7 @@ function renderOverview(){
   const chips = DAYS.slice(1).map(d => {
     const dt = new Date(`2026-${d.date.match(/(\d+)月(\d+)日/)[1]}-${d.date.match(/(\d+)月(\d+)日/)[2]}T12:00:00+13:00`);
     const wd = '日一二三四五六'[dt.getDay()];
-    const hot = [6,7,12].includes(d.id) || d.id === 5;
+    const hot = [3,4,8,10].includes(d.id);
     return `<button class="dchip${hot?' hot':''}" onclick="go(${d.id})">
       <span class="d">${d.label.split(' · ')[1].split('/')[1]}</span>
       <span class="w">周${wd}</span>
@@ -818,7 +818,7 @@ function renderOverview(){
       <button class="drow" onclick="go(${d.id})">
         <div class="num" style="background:${d.color}">${d.id}</div>
         <div class="body">
-          <div class="t">${d.title}${[5,6,12].includes(d.id)?' <span class="pill-hot">关键日</span>':''}</div>
+          <div class="t">${d.title}${[3,4,8,10].includes(d.id)?' <span class="pill-hot">关键日</span>':''}</div>
           <div class="m">${d.date} · ${d.drive} · 住 ${d.stay}</div>
         </div>
         <div class="arrow">›</div>
