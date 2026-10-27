@@ -306,6 +306,21 @@ body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
 .urg-high { color: var(--tint-red); }
 
 /* ── Checklist ── */
+.ck-tools { display:flex; gap:8px; padding:0 4px 12px; }
+.ck-tool { border:none; font:inherit; font-size:12.5px; font-weight:700; padding:7px 12px;
+  border-radius:9px; background: var(--bg-elevated); color: var(--text-secondary);
+  box-shadow: var(--shadow-sm); cursor:pointer; }
+.ck-tool.primary { background:#1d1d1f; color:#fff; }
+.ck-tool:active { opacity:.6; }
+.ck-del { border:none; background:none; color:var(--tint-red); font-size:17px; line-height:1;
+  padding:0 2px; cursor:pointer; flex-shrink:0; font-family:inherit; }
+.ck-del.g { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px;
+  background:rgba(255,59,48,.09); margin-left:8px; }
+.ck-add { display:block; width:100%; border:none; background:none; color:var(--text-secondary);
+  font:inherit; font-size:12.5px; font-weight:600; padding:10px 12px; text-align:left; cursor:pointer; }
+.ck-add:active { opacity:.5; }
+.ck-sep { font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--text-tertiary);
+  text-transform:uppercase; padding: 10px 4px 8px; }
 .ck-group { margin-bottom:14px; }
 .ck-group h4 { font-size:13px; font-weight:700; color:var(--text-secondary); padding: 0 4px 8px;
   display:flex; align-items:baseline; gap:8px; justify-content:space-between; }
@@ -1245,6 +1260,30 @@ function sheetHtml(kind){
         <button class="btn nav" onclick="saveLink()">保存</button>
       </div>`;
   }
+  if (kind === 'ckitem') {
+    return `<h3>添加一条</h3>
+      <div class="hint">加到「${esc(CK_TARGET || '')}」。写短一点，手机上更好读。</div>
+      <div class="fld"><label>内容</label>
+        <textarea id="ckText" rows="3" placeholder="比如：打印国际驾照翻译件 3 份" style="resize:none"></textarea></div>
+      <div class="sheet-actions">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn nav" onclick="saveCkItem()">添加</button>
+      </div>`;
+  }
+  if (kind === 'ckgroup') {
+    return `<h3>新建分组</h3>
+      <div class="hint">比如「签证材料」「给朋友带的伴手礼」「出发前要退订的」。</div>
+      <div class="fld"><label>分组名称</label>
+        <input id="ckgName" placeholder="比如：签证材料" autocomplete="off"></div>
+      <div class="fld"><label>时间提示（可留空）</label>
+        <input id="ckgWhen" placeholder="比如：11 月中之前" autocomplete="off"></div>
+      <div class="fld"><label>第一条内容（可留空）</label>
+        <input id="ckgFirst" placeholder="比如：护照原件 + 复印件" autocomplete="off"></div>
+      <div class="sheet-actions">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn nav" onclick="saveCkGroup()">创建</button>
+      </div>`;
+  }
   if (kind === 'cat') {
     return `<h3>新增类目</h3>
       <div class="hint">想记什么都行，比如签证、伴手礼、停车费。</div>
@@ -1600,16 +1639,141 @@ const CK_KEY = 'nz-trip-check-2026';
 function getCk(){ try { return JSON.parse(localStorage.getItem(CK_KEY) || '{}'); } catch(e){ return {}; } }
 function setCk(o){ localStorage.setItem(CK_KEY, JSON.stringify(o)); }
 
-function renderNotes(){
+const CKX_KEY = 'nz-trip-check-x-2026';
+function getCkx(){
+  try { const o = JSON.parse(localStorage.getItem(CKX_KEY) || '{}');
+    return { groups: o.groups || [], extra: o.extra || {}, removed: o.removed || [] };
+  } catch(e){ return { groups: [], extra: {}, removed: [] }; }
+}
+function setCkx(o){ localStorage.setItem(CKX_KEY, JSON.stringify(o)); }
+let CK_EDIT = false;
+
+function ckGroups(){
+  const x = getCkx();
+  const base = CHECKLIST.map(g => ({
+    name: g.group, when: g.when || '', custom: false,
+    items: g.items
+      .filter(t => !x.removed.includes(g.group + '|' + t))
+      .map(t => ({ text: t }))
+      .concat((x.extra[g.group] || []).map(i => ({ text: i.text, cid: i.id })))
+  }));
+  return base.concat(x.groups.map(g => ({
+    name: g.name, when: g.when || '', custom: true, gid: g.id,
+    items: g.items.map(i => ({ text: i.text, cid: i.id }))
+  })));
+}
+
+function ckHtml(){
   const ck = getCk();
-  const total = CHECKLIST.reduce((a,g)=>a+g.items.length,0);
-  const done = Object.values(ck).filter(Boolean).length;
+  const gs = ckGroups();
+  const total = gs.reduce((n,g) => n + g.items.length, 0);
+  const done = gs.reduce((n,g) => n + g.items.filter(i => ck[g.name + '|' + i.text]).length, 0);
+
+  let prevCustom = false;
+  const rows = gs.map(g => {
+    const nm = esc(g.name);
+    const sep = (g.custom && !prevCustom) ? '<div class="ck-sep">我的分组</div>' : '';
+    prevCustom = g.custom;
+    return sep + `
+    <div class="ck-group">
+      <h4>
+        <span>${g.name}${g.custom && CK_EDIT ? `<button class="ck-del g" data-gid="${g.gid}" onclick="delCkGroup(this.dataset.gid)">删除</button>` : ''}</span>
+        ${g.when ? `<span class="ck-when">${esc(g.when)}</span>` : ''}
+      </h4>
+      ${g.items.map(i => {
+        const key = g.name + '|' + i.text;
+        const on = !!ck[key];
+        return `<div class="ck-item ${on?'on':''}" data-g="${nm}" data-t="${esc(i.text)}" ${i.cid?`data-cid="${i.cid}"`:''} onclick="ckTap(this)">
+          <div class="ck-box">${on?'✓':''}</div>
+          <div class="ck-txt">${esc(i.text)}</div>
+          ${CK_EDIT ? `<button class="ck-del" onclick="event.stopPropagation();delCkItem(this)">×</button>` : ''}
+        </div>`;
+      }).join('')}
+      ${CK_EDIT ? `<button class="ck-add" data-g="${nm}" onclick="openCkItem(this.dataset.g)">＋ 添加到「${g.name}」</button>` : ''}
+    </div>`;
+  }).join('');
 
   return `
+  <div class="ck-tools">
+    <button class="ck-tool ${CK_EDIT?'primary':''}" onclick="toggleCkEdit()">${CK_EDIT?'完成':'编辑清单'}</button>
+    ${CK_EDIT ? `<button class="ck-tool" onclick="openCkGroup()">＋ 新建分组</button>` : ''}
+    <span style="margin-left:auto;font-size:12px;color:var(--text-tertiary);align-self:center"><b>${done}</b> / ${total}</span>
+  </div>
+  ${rows}`;
+}
+
+function repaintNotes(){
+  const el = document.getElementById('ckList');
+  if (el) el.innerHTML = ckHtml();
+}
+function toggleCkEdit(){ CK_EDIT = !CK_EDIT; repaintNotes(); }
+function ckTap(el){
+  if (CK_EDIT) return;
+  const key = el.dataset.g + '|' + el.dataset.t;
+  const ck = getCk();
+  ck[key] = !ck[key];
+  setCk(ck);
+  el.classList.toggle('on', ck[key]);
+  el.querySelector('.ck-box').textContent = ck[key] ? '✓' : '';
+  const box = document.querySelector('.ck-tools span b');
+  if (box) {
+    const gs = ckGroups();
+    box.textContent = gs.reduce((n,g) => n + g.items.filter(i => ck[g.name + '|' + i.text]).length, 0);
+  }
+}
+
+/* 新增条目 / 分组 */
+let CK_TARGET = null;
+function openCkItem(g){ CK_TARGET = g; openSheet('ckitem'); }
+function saveCkItem(){
+  const t = document.getElementById('ckText').value.trim();
+  if (!t) { toast('先写点内容'); return; }
+  const x = getCkx();
+  const g = x.groups.find(y => y.name === CK_TARGET);
+  const id = 'i' + Date.now().toString(36);
+  if (g) g.items.push({ id, text: t });
+  else (x.extra[CK_TARGET] = x.extra[CK_TARGET] || []).push({ id, text: t });
+  setCkx(x); closeSheet(); repaintNotes(); toast('已添加');
+}
+function delCkItem(btn){
+  const el = btn.closest('.ck-item');
+  const g = el.dataset.g, t = el.dataset.t, cid = el.dataset.cid;
+  const x = getCkx();
+  const cg = x.groups.find(y => y.name === g);
+  if (cg) cg.items = cg.items.filter(i => (cid ? i.id !== cid : i.text !== t));
+  else if ((x.extra[g] || []).some(i => i.text === t)) x.extra[g] = x.extra[g].filter(i => i.text !== t);
+  else if (!x.removed.includes(g + '|' + t)) x.removed.push(g + '|' + t);
+  setCkx(x); repaintNotes();
+}
+function delCkGroup(gid){
+  const x = getCkx();
+  const g = x.groups.find(y => y.id === gid);
+  if (!g) return;
+  if (!confirm('删除分组「' + g.name + '」和里面的 ' + g.items.length + ' 条？')) return;
+  x.groups = x.groups.filter(y => y.id !== gid);
+  setCkx(x); repaintNotes(); toast('已删除');
+}
+function openCkGroup(){ openSheet('ckgroup'); }
+function saveCkGroup(){
+  const name = document.getElementById('ckgName').value.trim();
+  const when = document.getElementById('ckgWhen').value.trim();
+  const first = document.getElementById('ckgFirst').value.trim();
+  if (!name) { toast('给分组起个名'); return; }
+  const x = getCkx();
+  if (CHECKLIST.some(g => g.group === name) || x.groups.some(g => g.name === name)) {
+    toast('已有同名分组'); return;
+  }
+  const gid = 'g' + Date.now().toString(36);
+  x.groups.push({ id: gid, name, when, items: first ? [{ id: 'i' + Date.now().toString(36), text: first }] : [] });
+  setCkx(x); closeSheet(); repaintNotes(); toast('分组已建');
+}
+
+function renderNotes(){
+  return `
   <div class="hero" style="padding-bottom:14px">
-    <div class="eyebrow">Prep & Notes</div>
+    <div class="eyebrow">Prep &amp; Notes</div>
     <h1 style="font-size:30px">行前清单</h1>
-    <div class="sub">勾选保存在本机。照着时间顺序做，<b>${done} / ${total}</b></div>
+    <div class="sub">勾选保存在本机。<b>点右上「编辑清单」</b>可增删条目和分组。</div>
   </div>
 
   <div class="toolbar">
@@ -1617,17 +1781,7 @@ function renderNotes(){
   </div>
   <div id="searchOut"></div>
 
-  ${CHECKLIST.map(g => `
-    <div class="ck-group">
-      <h4><span>${g.group}</span>${g.when?`<span class="ck-when">${g.when}</span>`:''}</h4>
-      ${g.items.map(it => {
-        const k = g.group + '|' + it;
-        return `<div class="ck-item ${ck[k]?'on':''}" onclick="toggleCk(this,'${k.replace(/'/g,"\\'")}')">
-          <div class="ck-box">${ck[k]?'✓':''}</div>
-          <div class="ck-txt">${it}</div>
-        </div>`;
-      }).join('')}
-    </div>`).join('')}
+  <div id="ckList">${ckHtml()}</div>
 
   ${NOTE_SECTIONS.map(s => `
     <div class="note-block">
@@ -1648,14 +1802,6 @@ function renderNotes(){
     ${TRIP.dateRange} · 新西兰南岛 · 2 人自驾
   </div>
   `;
-}
-
-function toggleCk(el, key){
-  const ck = getCk();
-  ck[key] = !ck[key];
-  setCk(ck);
-  el.classList.toggle('on', ck[key]);
-  el.querySelector('.ck-box').textContent = ck[key] ? '✓' : '';
 }
 
 function doSearch(q){
