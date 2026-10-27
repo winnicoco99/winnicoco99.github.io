@@ -307,7 +307,9 @@ body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
 
 /* ── Checklist ── */
 .ck-group { margin-bottom:14px; }
-.ck-group h4 { font-size:13px; font-weight:700; color:var(--text-secondary); padding: 0 4px 8px; }
+.ck-group h4 { font-size:13px; font-weight:700; color:var(--text-secondary); padding: 0 4px 8px;
+  display:flex; align-items:baseline; gap:8px; justify-content:space-between; }
+.ck-group h4 .ck-when { font-size:11px; font-weight:600; color:var(--text-tertiary); text-align:right; flex-shrink:0; }
 .ck-item {
   display:flex; gap:10px; align-items:flex-start; padding:11px 14px;
   background: var(--bg-elevated); box-shadow: var(--shadow-sm);
@@ -1607,7 +1609,7 @@ function renderNotes(){
   <div class="hero" style="padding-bottom:14px">
     <div class="eyebrow">Prep & Notes</div>
     <h1 style="font-size:30px">行前清单</h1>
-    <div class="sub">勾选会保存在本机，下次打开还在。<b>${done} / ${total}</b></div>
+    <div class="sub">勾选保存在本机。照着时间顺序做，<b>${done} / ${total}</b></div>
   </div>
 
   <div class="toolbar">
@@ -1617,7 +1619,7 @@ function renderNotes(){
 
   ${CHECKLIST.map(g => `
     <div class="ck-group">
-      <h4>${g.group}</h4>
+      <h4><span>${g.group}</span>${g.when?`<span class="ck-when">${g.when}</span>`:''}</h4>
       ${g.items.map(it => {
         const k = g.group + '|' + it;
         return `<div class="ck-item ${ck[k]?'on':''}" onclick="toggleCk(this,'${k.replace(/'/g,"\\'")}')">
