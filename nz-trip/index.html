@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="NZ 14晚">
 <meta name="theme-color" content="#f5f5f7">
-<link rel="manifest" href="manifest.json?v=6">
+<link rel="manifest" href="manifest.json?v=18">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -536,6 +536,145 @@ body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
 #toast.show { opacity:1; transform: translate(-50%, 0); }
 /* 分类图标：SVG，不依赖 emoji 字体 */
 .bd-row .ic svg { width:15px; height:15px; stroke: currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+
+/* ══════════ 文件柜：证件夹 / 票据夹 ══════════ */
+.vault-entry { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 4px; }
+.vx-card {
+  background: var(--bg-elevated); border-radius: var(--radius-lg); padding:15px 14px;
+  box-shadow: var(--shadow-sm); cursor:pointer; position:relative; overflow:hidden;
+  display:flex; flex-direction:column; gap:3px; border:none; font-family:inherit; text-align:left;
+  transition: transform .2s;
+}
+.vx-card:active { transform: scale(.97); }
+.vx-card .ic { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin-bottom:7px; }
+.vx-card .ic svg { width:17px; height:17px; stroke:#fff; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.vx-card .t { font-size:14.5px; font-weight:800; letter-spacing:-.02em; color:var(--text-primary); }
+.vx-card .s { font-size:11.5px; color:var(--text-secondary); letter-spacing:-.01em; }
+.vx-card .cnt {
+  position:absolute; top:12px; right:12px; min-width:19px; height:19px; padding:0 6px;
+  border-radius:980px; background:var(--tint-red); color:#fff; font-size:11px; font-weight:800;
+  display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums;
+}
+.vx-card .cnt.zero { background: var(--bg-grouped); color: var(--text-tertiary); }
+
+/* 子页外壳 */
+.vx-head { padding: 16px 16px 10px; display:flex; align-items:center; gap:10px; }
+.vx-back {
+  width:34px; height:34px; border-radius:50%; border:none; background:var(--bg-elevated);
+  box-shadow:var(--shadow-sm); display:flex; align-items:center; justify-content:center;
+  font-size:17px; color:var(--text-primary); cursor:pointer; flex-shrink:0; padding-bottom:2px;
+}
+.vx-ttl { font-size:21px; font-weight:800; letter-spacing:-.03em; flex:1; }
+.vx-add {
+  border:none; background: var(--accent); color:#fff; border-radius:980px; padding:8px 14px;
+  font-size:13px; font-weight:800; font-family:inherit; cursor:pointer; letter-spacing:-.01em;
+}
+.vx-add:active { opacity:.7; }
+
+.vx-tools { display:flex; gap:8px; padding:0 16px 12px; }
+.vx-tools button {
+  border:none; background:var(--bg-elevated); color:var(--text-secondary); border-radius:980px;
+  padding:7px 13px; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer;
+  box-shadow:var(--shadow-sm);
+}
+.vx-tools button.on { background: var(--text-primary); color: var(--bg-secondary); }
+
+/* 证件行（列表） */
+.vx-list { padding: 0 16px 24px; display:flex; flex-direction:column; gap:8px; }
+.vx-row {
+  background: var(--bg-elevated); border-radius: var(--radius-md); padding:13px 14px;
+  box-shadow: var(--shadow-sm); display:flex; align-items:center; gap:12px; cursor:pointer;
+  border:none; font-family:inherit; text-align:left; width:100%;
+}
+.vx-row:active { opacity:.72; }
+.vx-row .badge {
+  width:34px; height:34px; border-radius:10px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#fff;
+  letter-spacing:.01em;
+}
+.vx-row .body { flex:1; min-width:0; }
+.vx-row .n { font-size:14.5px; font-weight:700; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vx-row .m { font-size:11.5px; color:var(--text-secondary); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vx-row .go { color:var(--text-tertiary); font-size:17px; flex-shrink:0; }
+.vx-row .num { font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--tint-orange); flex-shrink:0; }
+
+/* 详情 */
+.vx-detail { padding: 0 16px 30px; }
+.vx-fields { background: var(--bg-elevated); border-radius: var(--radius-lg); overflow:hidden; box-shadow: var(--shadow-sm); margin-bottom:10px; }
+.vx-f { display:flex; padding:12px 15px; gap:12px; border-bottom:.5px solid var(--separator); align-items:baseline; }
+.vx-f:last-child { border-bottom:none; }
+.vx-f .k { font-size:12.5px; color:var(--text-secondary); width:84px; flex-shrink:0; }
+.vx-f .v { font-size:14px; font-weight:600; flex:1; word-break:break-all; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+.vx-f .v.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:13.5px; letter-spacing:.04em; }
+.vx-f .v.dim { color:var(--text-tertiary); font-weight:500; }
+.vx-copy { border:none; background:var(--bg-grouped); color:var(--accent); border-radius:7px; padding:3px 8px; font-size:11px; font-weight:800; font-family:inherit; cursor:pointer; flex-shrink:0; }
+
+/* 图片网格 */
+.vx-imgs { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:12px; }
+.vx-imgs:empty { display:none; }
+.vx-imgs.one { grid-template-columns:1fr; }
+.vx-img {
+  position:relative; aspect-ratio: 3/4; border-radius:11px; overflow:hidden;
+  background:#fff; border:.5px solid var(--separator); cursor:pointer;
+}
+.vx-imgs.one .vx-img { aspect-ratio: 4/3; max-height:300px; }
+.vx-img img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+.vx-img .del {
+  position:absolute; top:4px; right:4px; width:21px; height:21px; border-radius:50%;
+  background:rgba(0,0,0,.55); color:#fff; border:none; font-size:14px; line-height:1;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; backdrop-filter:blur(4px);
+}
+.vx-empty {
+  text-align:center; padding: 40px 30px; color:var(--text-tertiary); font-size:13.5px; line-height:1.7;
+}
+.vx-empty b { color:var(--text-secondary); display:block; font-size:15px; margin-bottom:6px; font-weight:700; }
+
+/* 大图查看 */
+.vx-viewer {
+  position:fixed; inset:0; z-index:4000; background:#000; display:none;
+  align-items:center; justify-content:center;
+}
+.vx-viewer.on { display:flex; }
+.vx-viewer img { max-width:100%; max-height:100%; object-fit:contain; }
+.vx-viewer .x {
+  position:absolute; top:calc(env(safe-area-inset-top) + 14px); right:16px;
+  width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.18); color:#fff;
+  border:none; font-size:19px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; backdrop-filter:blur(10px);
+}
+.vx-viewer .nav {
+  position:absolute; top:50%; transform:translateY(-50%); width:40px; height:56px;
+  background:rgba(255,255,255,.13); color:#fff; border:none; font-size:22px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);
+}
+.vx-viewer .nav.l { left:0; border-radius:0 10px 10px 0; }
+.vx-viewer .nav.r { right:0; border-radius:10px 0 0 10px; }
+
+/* PIN 锁屏 */
+.vx-lock { padding: 50px 30px; text-align:center; }
+.vx-lock .lk { width:56px; height:56px; border-radius:16px; background:var(--text-primary); margin:0 auto 18px; display:flex; align-items:center; justify-content:center; }
+.vx-lock .lk svg { width:26px; height:26px; stroke:var(--bg-primary); fill:none; stroke-width:1.8; stroke-linecap:round; }
+.vx-lock h2 { font-size:22px; font-weight:800; letter-spacing:-.03em; margin-bottom:6px; }
+.vx-lock p { font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:20px; }
+.vx-pin { display:flex; gap:10px; justify-content:center; margin-bottom:16px; }
+.vx-pin input {
+  width:44px; height:54px; text-align:center; font-size:22px; font-weight:700; font-family:inherit;
+  border:1.5px solid var(--separator); border-radius:11px; background:var(--bg-elevated);
+  color:var(--text-primary); outline:none; -webkit-text-security:disc;
+}
+.vx-pin input:focus { border-color: var(--accent); }
+.vx-lock .err { color:var(--tint-red); font-size:12.5px; font-weight:600; margin-bottom:12px; min-height:17px; }
+
+/* 表单输入 */
+#vxFields input {
+  border:none; background: var(--bg-grouped); border-radius:9px; padding:9px 11px;
+  font-size:13.5px; font-family:inherit; color:var(--text-primary); outline:none;
+  -webkit-appearance:none; appearance:none;
+}
+#vxFields input::placeholder { color: var(--text-tertiary); }
+#vxFields input:focus { background:#e8e8ed; }
+.vx-detail .btn, .sheet-actions .btn { background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
+.vx-detail .btn.nav, .sheet-actions .btn.nav { background: var(--accent); color:#fff; box-shadow:none; }
 </style>
 </head>
 <body>
@@ -557,6 +696,7 @@ body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
   <div class="pane" id="pane-budget"></div>
   <div class="pane" id="pane-log"></div>
   <div class="pane" id="pane-note"></div>
+  <div class="pane" id="pane-vault"></div>
 </div>
 
 <nav class="bnav" id="bnav">
@@ -582,7 +722,7 @@ body.map-full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 8px); }
 
 <div id="toast"></div>
 
-<script src="data.js?v=6"></script>
+<script src="data.js?v=18"></script>
 <script>
 /* ═══════════════ 地图 ═══════════════ */
 const ALL_LATLNG = [];
@@ -979,8 +1119,29 @@ function renderBookings(){
     <h1 style="font-size:30px">要订什么</h1>
     <div class="sub">机票、酒店、租车、体验，<b>全部未订</b>。按紧急度从上往下处理。</div>
   </div>
+
+  <div class="section-head">我的文件 <span class="more" style="color:var(--text-tertiary)">存在这台手机上</span></div>
+  <div class="vault-entry">
+    <button class="vx-card" onclick="openVault('id')">
+      <div class="ic" style="background:#007aff">
+        <svg viewBox="0 0 24 24"><rect x="4.5" y="3" width="15" height="18" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8.5 17c.7-1.7 2-2.5 3.5-2.5s2.8.8 3.5 2.5"/></svg>
+      </div>
+      <div class="t">证件夹</div>
+      <div class="s">护照 · 签证 · 保险</div>
+      <div class="cnt zero" data-vxc="id">0</div>
+    </button>
+    <button class="vx-card" onclick="openVault('receipt')">
+      <div class="ic" style="background:#ff9500">
+        <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+      </div>
+      <div class="t">票据夹</div>
+      <div class="s">租车 · 加油 · 门票</div>
+      <div class="cnt zero" data-vxc="receipt">0</div>
+    </button>
+  </div>
+
   ${BOOKINGS.map(sec => `
-    <div class="section-head">${sec.section} <span class="more ${sec.urgent==='高'?'urg-high':''}">紧急度 ${sec.urgent}</span></div>
+    <div class="section-head">${sec.group} <span class="more ${sec.urgent==='高'?'urg-high':''}">紧急度 ${sec.urgent}</span></div>
     ${sec.items.map(it => `
       <div class="bk-item">
         <div class="h">
@@ -1294,6 +1455,15 @@ function sheetHtml(kind){
       <div class="sheet-actions">
         <button class="btn" onclick="closeSheet()">取消</button>
         <button class="btn nav" onclick="saveCat()">加上</button>
+      </div>`;
+  }
+  if (kind === 'vxpin') {
+    return `<h3>设 4 位 PIN</h3>
+      <div class="hint">设好之后，证件内容会用这个 PIN 加密存起来。<b>忘了就打不开了，没有找回的办法</b>，建议用你手机锁屏那个。</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin:6px 0 16px">${vxPinInputs()}</div>
+      <div class="sheet-actions">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn nav" onclick="vxDoSetPin()">开启加密</button>
       </div>`;
   }
   return '';
@@ -1854,7 +2024,7 @@ function paintPane(p){
   if (p === 'trip') return;                      // 行程页常驻，不重绘
   try {
     if (p === 'stay')   el.innerHTML = renderStays();
-    if (p === 'bk')     el.innerHTML = renderBookings();
+    if (p === 'bk')     { el.innerHTML = renderBookings(); setTimeout(vxPaintCounts, 0); }
     if (p === 'budget') el.innerHTML = renderBudget();
     if (p === 'log')    el.innerHTML = renderLog();
     if (p === 'note')   el.innerHTML = renderNotes();
@@ -1883,6 +2053,9 @@ document.querySelectorAll('.bnav button').forEach(b => {
     b.classList.add('active');
     const p = b.dataset.pane;
     document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+    const vp = document.getElementById('pane-vault');
+    if (vp) { vp.innerHTML = ''; }                // 离开文件柜就清掉，别占内存
+    if (typeof vxResetUrls === 'function') vxResetUrls();
     const target = document.getElementById('pane-' + p);
     paintPane(p);                                 // 先渲染，避免切过去是空白
     target.classList.add('active');
@@ -2049,6 +2222,861 @@ if (SHARED) {
   if (tabs) tabs.style.display = 'none';
   document.body.classList.add('shared-mode');
 }
-</script>
+
+/* ═══════════════════════════════════════════
+   文件柜：证件夹 / 票据夹
+   ─ 数据存 IndexedDB（本机），不上传、不同步
+   ─ 证件默认明文；可开 4 位 PIN，AES-GCM 加密
+   ═══════════════════════════════════════════ */
+const VX_KS  = 'nz-vault-key-2026';
+const VX_DBN = 'nz-vault';
+const VX_ST  = 'docs';
+
+const VX_META = {
+  id: {
+    name: '证件夹', color: '#007aff', sub: '护照 · 签证 · 保险 · 机票',
+    types: [
+      { k:'passport',  n:'护照',   c:'#007aff', pre:'姓名|护照号*|有效期至|签发地|国籍' },
+      { k:'visa',      n:'签证',   c:'#af52de', pre:'签证类型|签证号*|有效期至|入境次数|签发日期' },
+      { k:'idcard',    n:'身份证', c:'#30b0c7', pre:'姓名|身份证号*|有效期至' },
+      { k:'insurance', n:'保险',   c:'#34c759', pre:'保险公司|保单号*|保障期间|24h 救援电话*' },
+      { k:'flight',    n:'机票',   c:'#ff9500', pre:'航班号|日期|航程|座位|订单号*' },
+      { k:'license',   n:'驾照',   c:'#5856d6', pre:'姓名|驾照号*|有效期至|翻译件号*' },
+      { k:'other',     n:'其他',   c:'#8e8e93', pre:'名称|号码*|有效期至' }
+    ]
+  },
+  receipt: {
+    name: '票据夹', color: '#ff9500', sub: '租车 · 加油 · 住宿 · 门票',
+    types: [
+      { k:'car',   n:'租车',  c:'#007aff', pre:'车行|订单号*|取车|还车' },
+      { k:'fuel',  n:'加油',  c:'#34c759', pre:'加油站|日期' },
+      { k:'stay',  n:'住宿',  c:'#ff9500', pre:'酒店|入住|退房|订单号*' },
+      { k:'play',  n:'门票',  c:'#af52de', pre:'项目|日期|人数' },
+      { k:'food',  n:'餐饮',  c:'#ff3b30', pre:'店名|日期' },
+      { k:'other', n:'其他',  c:'#8e8e93', pre:'名称|日期' }
+    ]
+  }
+};
+
+let VX_KEY  = null;           // 解锁后的 CryptoKey
+let VX_DOCS = [];             // 已解密的文档
+let VX_URLS = [];             // 待回收的 objectURL
+let VX_FORM = null;           // 编辑中的草稿
+let VX_VIEW = { kind:null, id:null, form:false, tab:'all' };
+let VX_SHOW = { docId:null, i:0 };
+
+const VXE = new TextEncoder(), VXD = new TextDecoder();
+
+/* ── base64 ── */
+function b64e(buf){
+  const u = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function b64d(str){
+  const s = atob(str), u = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+  return u;
+}
+
+/* ── IndexedDB ── */
+function vxIdb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(VX_DBN, 1);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains(VX_ST)) db.createObjectStore(VX_ST, { keyPath:'id' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function vxGetAll(){
+  const db = await vxIdb();
+  return new Promise((res, rej) => {
+    const rq = db.transaction(VX_ST, 'readonly').objectStore(VX_ST).getAll();
+    rq.onsuccess = () => res(rq.result || []);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function vxWrite(rec){
+  const db = await vxIdb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(VX_ST, 'readwrite');
+    tx.objectStore(VX_ST).put(rec);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function vxErase(id){
+  const db = await vxIdb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(VX_ST, 'readwrite');
+    tx.objectStore(VX_ST).delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+/* ── 加密 ── */
+function vxKsGet(){ try { return JSON.parse(localStorage.getItem(VX_KS) || 'null'); } catch(e){ return null; } }
+function vxKsSet(o){
+  if (o) localStorage.setItem(VX_KS, JSON.stringify(o));
+  else localStorage.removeItem(VX_KS);
+}
+function vxPinOn(){ const k = vxKsGet(); return !!(k && k.on); }
+
+async function vxDerive(pin, saltU8){
+  const base = await crypto.subtle.importKey('raw', VXE.encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt:saltU8, iterations:180000, hash:'SHA-256' },
+    base, { name:'AES-GCM', length:256 }, false, ['encrypt', 'decrypt']
+  );
+}
+
+function blob2b64(b){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result).split(',')[1] || '');
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(b);
+  });
+}
+function b642blob(d, t){
+  const u = b64d(d);
+  return new Blob([u], { type: t || 'image/jpeg' });
+}
+
+async function vxEncode(doc, key){
+  const imgs = [];
+  for (const b of (doc.imgs || [])) imgs.push({ t: b.type || 'image/jpeg', d: await blob2b64(b) });
+  const plain = Object.assign({}, doc, { imgs });
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, VXE.encode(JSON.stringify(plain)));
+  return { id: doc.id, kind: doc.kind, ts: doc.ts, enc:1, iv: Array.from(iv), ct };
+}
+async function vxDecode(rec, key){
+  const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv: new Uint8Array(rec.iv) }, key, rec.ct);
+  const o = JSON.parse(VXD.decode(pt));
+  o.imgs = (o.imgs || []).map(x => b642blob(x.d, x.t));
+  o.enc = true;
+  return o;
+}
+
+async function vxPersist(doc){
+  if (VX_KEY) await vxWrite(await vxEncode(doc, VX_KEY));
+  else await vxWrite({ id: doc.id, kind: doc.kind, ts: doc.ts, plain: doc });
+}
+
+async function vxRewrap(toEnc){
+  const recs = await vxGetAll();
+  for (const r of recs){
+    if (toEnc && !r.enc)      await vxWrite(await vxEncode(r.plain, VX_KEY));
+    else if (!toEnc && r.enc) await vxWrite({ id:r.id, kind:r.kind, ts:r.ts, plain: await vxDecode(r, VX_KEY) });
+  }
+}
+
+/* ── 图片压缩 ── */
+function vxCompress(file, maxSide, q){
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const s = Math.min(1, maxSide / Math.max(w, h));
+      w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      cv.toBlob(b => resolve(b || file), 'image/jpeg', q);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+function vxUrl(b){ const u = URL.createObjectURL(b); VX_URLS.push(u); return u; }
+function vxResetUrls(){
+  VX_URLS.forEach(u => { try { URL.revokeObjectURL(u); } catch(e){} });
+  VX_URLS = [];
+}
+
+/* ── 加载 ── */
+async function vxLoad(){
+  let recs = [];
+  try { recs = await vxGetAll(); } catch(e) { console.warn('[vault] idb fail', e); }
+  VX_DOCS = [];
+  for (const r of recs){
+    if (!r.enc) { if (r.plain) VX_DOCS.push(r.plain); continue; }
+    if (VX_KEY) {
+      try { VX_DOCS.push(await vxDecode(r, VX_KEY)); } catch(e){ console.warn('[vault] decode fail', e); }
+    }
+  }
+  VX_DOCS.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  vxPaintCounts();
+}
+
+function vxPaintCounts(){
+  const locked = vxPinOn() && !VX_KEY;
+  const c = { id:0, receipt:0 };
+  VX_DOCS.forEach(d => { if (c[d.kind] != null) c[d.kind]++; });
+  document.querySelectorAll('[data-vxc]').forEach(el => {
+    const n = c[el.dataset.vxc] || 0;
+    el.textContent = locked ? '·' : n;
+    el.classList.toggle('zero', !locked && n === 0);
+  });
+}
+
+/* ── 视图切换 ── */
+function openVault(kind){
+  VX_VIEW = { kind, id:null, form:false, tab:'all' };
+  const bt = document.getElementById('barTitle');
+  if (bt) bt.textContent = (VX_META[kind] || VX_META.id).name;
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+  const mw = document.querySelector('.map-wrap'); if (mw) mw.style.display = 'none';
+  const tabs = document.getElementById('tabs');  if (tabs) tabs.style.display = 'none';
+  document.getElementById('pane-vault').classList.add('active');
+  vxRender();
+  window.scrollTo({ top:0 });
+}
+function closeVault(){
+  vxResetUrls();
+  VX_FORM = null;
+  const bt = document.getElementById('barTitle');
+  if (bt) bt.textContent = '新西兰南岛 · 14晚';
+  document.getElementById('pane-vault').innerHTML = '';
+  document.getElementById('pane-vault').classList.remove('active');
+  const btn = document.querySelector('.bnav button[data-pane="bk"]');
+  if (btn) btn.click();
+}
+function vxToList(){
+  VX_VIEW.id = null; VX_VIEW.form = false; VX_FORM = null;
+  vxRender();
+  window.scrollTo({ top:0 });
+}
+function vxOpenDoc(id){
+  VX_VIEW.id = id; VX_VIEW.form = false; VX_FORM = null;
+  vxRender();
+  window.scrollTo({ top:0 });
+}
+
+function vxRender(){
+  const el = document.getElementById('pane-vault');
+  if (!el) return;
+  vxResetUrls();
+  let html;
+  if (vxPinOn() && !VX_KEY) html = vxLockHtml();
+  else if (VX_VIEW.form)     html = vxFormHtml();
+  else if (VX_VIEW.id)       html = vxDetailHtml();
+  else                       html = vxListHtml();
+  el.innerHTML = html;
+  if (VX_VIEW.form) vxFocusNewest();
+}
+
+/* ── 锁屏 ── */
+function vxLockHtml(){
+  const ks = vxKsGet() || {};
+  const n = ks.n || 4;
+  let inputs = '';
+  for (let i = 0; i < 4; i++) inputs += `<input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1"
+    data-i="${i}" oninput="vxPinIn(this)" onkeydown="vxPinKey(event)" autocomplete="off">`;
+  return `<div class="vx-head">
+      <button class="vx-back" onclick="closeVault()">‹</button>
+      <div class="vx-ttl">${(VX_META[VX_VIEW.kind] || VX_META.id).name}</div>
+    </div>
+    <div class="vx-lock">
+    <div class="lk"><svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div>
+    <h2>已加密</h2>
+    <p>输入 4 位 PIN 解锁。<br>PIN 只记在这台手机里，忘了就打不开了。</p>
+    <div class="vx-pin" id="vxPinBox">${inputs}</div>
+    <div class="err" id="vxErr"></div>
+    <button class="btn nav" style="width:100%" onclick="vxDoUnlock()">解锁</button>
+    <div style="margin-top:12px">
+      <button style="background:none;border:none;color:var(--text-secondary);font-size:12.5px;font-family:inherit;padding:8px"
+        onclick="vxForget()">忘记 PIN，清空重来</button>
+    </div>
+  </div>`;
+}
+function vxPinIn(el){
+  el.value = (el.value || '').replace(/\D/g, '').slice(0, 1);
+  const i = +el.dataset.i;
+  if (el.value && i < 3) {
+    const nx = document.querySelector(`#vxPinBox input[data-i="${i+1}"]`);
+    if (nx) nx.focus();
+  }
+  const all = [...document.querySelectorAll('#vxPinBox input')].map(x => x.value).join('');
+  if (all.length === 4) setTimeout(vxDoUnlock, 120);
+}
+function vxPinKey(e){
+  if (e.key === 'Backspace' && !e.target.value) {
+    const i = +e.target.dataset.i;
+    if (i > 0) document.querySelector(`#vxPinBox input[data-i="${i-1}"]`).focus();
+  }
+}
+async function vxDoUnlock(){
+  const pin = [...document.querySelectorAll('#vxPinBox input')].map(x => x.value).join('');
+  const err = document.getElementById('vxErr');
+  if (pin.length !== 4) { if (err) err.textContent = '要输满 4 位'; return; }
+  const ks = vxKsGet();
+  if (!ks) { VX_KEY = null; vxRender(); return; }
+  try {
+    const key = await vxDerive(pin, b64d(ks.salt));
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv: new Uint8Array(ks.iv) }, key, b64d(ks.check));
+    if (VXD.decode(pt) !== 'nz-vault-ok') throw new Error('bad');
+    VX_KEY = key;
+    document.querySelectorAll('#vxPinBox input').forEach(x => x.value = '');
+    await vxLoad();
+    vxRender();
+    toast('已解锁');
+  } catch(e) {
+    if (err) err.textContent = 'PIN 不对，再试一次';
+    document.querySelectorAll('#vxPinBox input').forEach(x => x.value = '');
+    const f = document.querySelector('#vxPinBox input[data-i="0"]');
+    if (f) f.focus();
+  }
+}
+function vxForget(){
+  if (!confirm('清空所有加密内容并重设 PIN？\n\n已经存进去的证件和图片会全部删除，无法恢复。')) return;
+  (async () => {
+    const recs = await vxGetAll();
+    for (const r of recs) await vxErase(r.id);
+    vxKsSet(null); VX_KEY = null; VX_DOCS = []; VX_FORM = null;
+    vxRender(); vxPaintCounts();
+    toast('已清空');
+  })();
+}
+
+/* ── 列表 ── */
+function vxSummary(d){
+  const fs = (d.fields || []).filter(f => f.v);
+  if (fs.length) return fs.slice(0, 2).map(f => f.v).join(' · ');
+  return d.note || '';
+}
+
+function vxListHtml(){
+  const m = VX_META[VX_VIEW.kind];
+  const all = VX_DOCS.filter(d => d.kind === VX_VIEW.kind);
+  const pics = all.reduce((t, d) => t + (d.imgs ? d.imgs.length : 0), 0);
+  const tabs = [{ k:'all', n:'全部', c:all.length }]
+    .concat(m.types.map(t => ({ k:t.k, n:t.n, c: all.filter(d => d.type === t.k).length })).filter(t => t.c > 0));
+  const list = VX_VIEW.tab === 'all' ? all : all.filter(d => d.type === VX_VIEW.tab);
+
+  const head = `<div class="vx-head">
+      <button class="vx-back" onclick="closeVault()">‹</button>
+      <div class="vx-ttl">${m.name}</div>
+      <button class="vx-add" onclick="vxNew()">＋ 添加</button>
+    </div>
+    <div style="padding:0 16px 10px;font-size:12px;color:var(--text-secondary);line-height:1.6">
+      ${all.length ? `${all.length} 份 · ${pics} 张图，存在这台手机上` : m.sub}
+    </div>`;
+
+  if (!all.length) {
+    return head + `<div class="vx-empty">
+      <b>还没有东西</b>
+      ${VX_VIEW.kind === 'id'
+        ? '先把护照、签证、保险单的号码抄进来。<br>号码比照片有用 —— 丢东西时补办要的就是号码。'
+        : '租车单、加油小票、门票，拍一张存一张。<br>报销和算账的时候不用翻相册。'}
+      <div style="margin-top:18px"><button class="vx-add" style="padding:11px 22px;font-size:14px" onclick="vxNew()">存第一份</button></div>
+    </div>` + vxPinBar();
+  }
+
+  const rows = list.map(d => {
+    const t = m.types.find(x => x.k === d.type) || m.types[m.types.length - 1];
+    const right = (d.kind === 'receipt' && d.amount > 0)
+      ? `<span class="num">${CUR_SYM[d.cur] || ''}${fmt(d.amount)}</span>`
+      : (d.imgs && d.imgs.length ? `<span class="num" style="color:var(--text-tertiary)">${d.imgs.length} 张</span>` : '');
+    return `<button class="vx-row" onclick="vxOpenDoc('${d.id}')">
+      <div class="badge" style="background:${t.c}">${t.n.slice(0, 2)}</div>
+      <div class="body">
+        <div class="n">${esc(d.title || t.n)}</div>
+        <div class="m">${esc(vxSummary(d)) || t.n}</div>
+      </div>
+      ${right}
+      <span class="go">›</span>
+    </button>`;
+  }).join('');
+
+  return `<div style="padding-bottom:20px">${head}
+    <div class="vx-tools">
+      ${tabs.map(t => `<button class="${VX_VIEW.tab === t.k ? 'on' : ''}" onclick="vxTab('${t.k}')">${t.n} ${t.c}</button>`).join('')}
+    </div>
+    <div class="vx-list">${rows || '<div class="vx-empty">这一类还没存东西</div>'}</div>
+    ${vxPinBar()}
+  </div>`;
+}
+
+function vxPinBar(){
+  const on = vxPinOn();
+  return `<div style="padding:6px 16px 30px">
+    <button onclick="vxPinSheet()" style="width:100%;border:none;background:var(--bg-elevated);border-radius:12px;
+      padding:13px;font-family:inherit;font-size:13px;font-weight:600;color:var(--text-secondary);box-shadow:var(--shadow-sm);cursor:pointer">
+      ${on ? '已开 PIN 加密 · 点这里关闭' : '未加密 · 点这里设 PIN'}
+    </button>
+    <div style="display:flex;gap:10px;justify-content:center;align-items:center;margin-top:4px">
+      <button onclick="vxExport()" style="border:none;background:none;color:var(--accent);font-family:inherit;
+        font-size:12.5px;font-weight:600;padding:8px 6px;cursor:pointer">导出备份文件</button>
+      <span style="color:var(--text-tertiary);font-size:11px;opacity:.5">|</span>
+      <label style="color:var(--accent);font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 6px;cursor:pointer">
+        从备份导入<input type="file" accept=".json,application/json" onchange="vxImport(this)" style="display:none"></label>
+    </div>
+    <div style="font-size:11.5px;color:var(--text-tertiary);line-height:1.65;padding:10px 4px 0">
+      这些东西只存在这台手机的浏览器里，不上传、不同步给任何人。<br>
+      <b style="color:var(--text-secondary)">换手机 / 删掉桌面图标 / 清浏览器数据都会没。</b>重要的号码建议另外打印一份带着。
+    </div>
+  </div>`;
+}
+
+function vxTab(k){ VX_VIEW.tab = k; vxRender(); }
+
+/* ── 详情 ── */
+function vxDetailHtml(){
+  const d = VX_DOCS.find(x => x.id === VX_VIEW.id);
+  if (!d) { VX_VIEW.id = null; return vxListHtml(); }
+  const m = VX_META[d.kind];
+  const t = m.types.find(x => x.k === d.type) || m.types[m.types.length - 1];
+
+  const fields = (d.fields || []).filter(f => f.k || f.v).map(f =>
+    `<div class="vx-f"><div class="k">${esc(f.k)}</div>
+      <div class="v${f.mono ? ' mono' : ''}${f.v ? '' : ' dim'}">${esc(f.v) || '未填'}</div>
+      ${f.v ? `<button class="vx-copy" onclick="vxCopy('${encodeURIComponent(f.v).replace(/'/g, '%27')}')">复制</button>` : ''}
+    </div>`).join('');
+
+  const imgs = (d.imgs && d.imgs.length)
+    ? `<div class="vx-imgs${d.imgs.length === 1 ? ' one' : ''}">${d.imgs.map((b, i) =>
+        `<div class="vx-img" onclick="vxOpenImg(${i})"><img src="${vxUrl(b)}" alt=""></div>`).join('')}</div>`
+    : '';
+
+  const money = (d.kind === 'receipt' && d.amount > 0)
+    ? `<div class="vx-fields"><div class="vx-f"><div class="k">金额</div>
+        <div class="v" style="color:var(--tint-orange);font-weight:800">${CUR_SYM[d.cur] || ''}${fmt(d.amount)}</div></div>
+        ${d.ledger ? `<div class="vx-f"><div class="k">预算</div><div class="v dim">已记入预算流水</div></div>` : ''}</div>`
+    : '';
+
+  return `<div class="vx-head">
+      <button class="vx-back" onclick="vxToList()">‹</button>
+      <div class="vx-ttl" style="font-size:19px">${esc(d.title || t.n)}</div>
+      <button class="vx-add" style="background:var(--bg-elevated);color:var(--accent);box-shadow:var(--shadow-sm)" onclick="vxEdit('${d.id}')">编辑</button>
+    </div>
+    <div class="vx-detail">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="background:${t.c};color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:980px">${t.n}</span>
+        <span style="font-size:12px;color:var(--text-tertiary)">${d.date ? '录入 ' + esc(d.date).slice(5) : ''}</span>
+      </div>
+      ${imgs}
+      ${fields ? `<div class="vx-fields">${fields}</div>` : ''}
+      ${money}
+      ${d.note ? `<div class="note-block" style="margin-top:10px"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">备注</div><div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap">${esc(d.note)}</div></div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn" style="flex:1" onclick="vxEdit('${d.id}')">改一下</button>
+        <button class="btn" style="flex:1;color:var(--tint-red)" onclick="vxDelete('${d.id}')">删除</button>
+      </div>
+    </div>`;
+}
+
+function vxCopy(enc){
+  const t = decodeURIComponent(enc);
+  const done = () => toast('已复制');
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done).catch(fb);
+  else fb();
+  function fb(){
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e){ toast('长按手动复制'); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ── 表单 ── */
+function vxPreFields(kind, type){
+  const m = VX_META[kind];
+  const t = m.types.find(x => x.k === type) || m.types[0];
+  return t.pre.split('|').filter(Boolean).map(s => {
+    const mono = s.endsWith('*');
+    return { k: mono ? s.slice(0, -1) : s, v:'', mono };
+  });
+}
+
+function vxNew(type){
+  const kind = VX_VIEW.kind;
+  const m = VX_META[kind];
+  const t0 = type || m.types[0].k;
+  VX_FORM = {
+    id: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    kind, type: t0, title:'',
+    fields: vxPreFields(kind, t0),
+    note:'', amount:'', cur:'NZD', cat: vxCatFor(t0), date: new Date().toISOString().slice(0, 10),
+    ledger:null, ts: Date.now(), imgs: [], isNew: true
+  };
+  VX_VIEW.form = true;
+  vxRender();
+  window.scrollTo({ top:0 });
+}
+
+function vxCatFor(type){
+  const map = { car:'car', fuel:'fuel', stay:'stay', food:'food', play:'exp', flight:'flight' };
+  return map[type] || 'other';
+}
+
+function vxEdit(id){
+  const d = VX_DOCS.find(x => x.id === id);
+  if (!d) return;
+  VX_FORM = Object.assign({}, d, {
+    fields: (d.fields || []).map(f => Object.assign({}, f)),
+    imgs: (d.imgs || []).slice(),
+    amount: d.amount ? String(d.amount) : '',
+    isNew: false
+  });
+  if (!VX_FORM.cat) VX_FORM.cat = vxCatFor(d.type);
+  VX_VIEW.form = true;
+  vxRender();
+  window.scrollTo({ top:0 });
+}
+
+function vxCancelForm(){
+  VX_FORM = null;
+  VX_VIEW.form = false;
+  if (VX_VIEW.id && !VX_VIEW.id.startsWith('v')) { /* 从详情进来 */ }
+  if (VX_VIEW.id && !VX_DOCS.find(d => d.id === VX_VIEW.id)) VX_VIEW.id = null;
+  vxRender();
+}
+
+function vxFieldRow(f){
+  return `<div class="vx-frow" style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+    <input class="fk" value="${esc(f.k)}" placeholder="项目" style="width:96px;flex-shrink:0">
+    <input class="fv" value="${esc(f.v)}" placeholder="内容" style="flex:1;min-width:0">
+    <button onclick="this.closest('.vx-frow').remove()" style="border:none;background:none;color:var(--text-tertiary);font-size:15px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</button>
+  </div>`;
+}
+
+function vxFormHtml(){
+  const f = VX_FORM;
+  if (!f) { VX_VIEW.form = false; return vxListHtml(); }
+  const m = VX_META[f.kind];
+  const isR = f.kind === 'receipt';
+  const cats = getBudget().cats.map(c => `<option value="${c.k}"${c.k === f.cat ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  const imgHtml = f.imgs.map((b, i) =>
+    `<div class="vx-img"><img src="${vxUrl(b)}" alt="">
+      <button class="del" onclick="vxDropImg(event,${i})">✕</button></div>`).join('');
+
+  return `<div class="vx-head">
+      <button class="vx-back" onclick="vxCancelForm()">✕</button>
+      <div class="vx-ttl" style="font-size:19px">${f.isNew ? '新增' : '修改'}${isR ? '票据' : '证件'}</div>
+    </div>
+    <div style="padding:0 16px 30px">
+
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:7px">类别</div>
+      <div class="vx-tools" style="padding:0 0 12px;flex-wrap:wrap">
+        ${m.types.map(t => `<button class="${f.type === t.k ? 'on' : ''}" data-vt="${t.k}" onclick="vxSetType('${t.k}')">${t.n}</button>`).join('')}
+      </div>
+
+      <div class="note-block" style="padding:14px 15px">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">标题</div>
+        <input id="vxTitle" value="${esc(f.title)}" placeholder="${isR ? '比如：Hertz 租车单' : '比如：我的护照'}"
+          style="width:100%;border:none;background:var(--bg-grouped);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text-primary);outline:none">
+
+        <div style="font-size:12px;color:var(--text-secondary);margin:14px 0 6px">信息</div>
+        <div id="vxFields">${(f.fields || []).map(vxFieldRow).join('')}</div>
+        <button onclick="vxAddField()" style="border:none;background:none;color:var(--accent);font-size:13px;font-weight:700;font-family:inherit;padding:6px 0;cursor:pointer">＋ 加一行</button>
+
+        ${isR ? `
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">金额</div>
+            <input id="vxAmt" type="number" inputmode="decimal" value="${f.amount || ''}" placeholder="0"
+              style="width:100%;border:none;background:var(--bg-grouped);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text-primary);outline:none">
+          </div>
+          <div style="width:96px">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">币种</div>
+            <select id="vxCur" style="width:100%;border:none;background:var(--bg-grouped);border-radius:9px;padding:10px 8px;font-size:14px;font-family:inherit;color:var(--text-primary);outline:none">
+              <option value="NZD"${f.cur === 'NZD' ? ' selected' : ''}>NZ$</option>
+              <option value="CNY"${f.cur === 'CNY' ? ' selected' : ''}>¥</option>
+              <option value="USD"${f.cur === 'USD' ? ' selected' : ''}>US$</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">记到预算</div>
+            <select id="vxCat" style="width:100%;border:none;background:var(--bg-grouped);border-radius:9px;padding:10px 8px;font-size:13px;font-family:inherit;color:var(--text-primary);outline:none">${cats}</select>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-secondary);margin-top:10px;cursor:pointer">
+          <input type="checkbox" id="vxBook"${f.ledger ? '' : ' checked'} style="width:16px;height:16px;margin:0">
+          同时在预算里记一笔
+        </label>` : ''}
+
+        <div style="font-size:12px;color:var(--text-secondary);margin:14px 0 6px">${isR ? '票据照片' : '证件照片'}</div>
+        <div class="vx-imgs${f.imgs.length === 1 ? ' one' : ''}" id="vxImgs">${imgHtml}</div>
+        <label style="display:block;text-align:center;border:1.5px dashed var(--separator);border-radius:11px;padding:14px;font-size:13px;color:var(--accent);font-weight:700;cursor:pointer">
+          ＋ 拍照 / 从相册选
+          <input type="file" accept="image/*" multiple onchange="vxPick(this)" style="display:none">
+        </label>
+
+        <div style="font-size:12px;color:var(--text-secondary);margin:14px 0 6px">备注</div>
+        <textarea id="vxNote" rows="2" placeholder="随便写点什么"
+          style="width:100%;border:none;background:var(--bg-grouped);border-radius:9px;padding:10px 12px;font-size:13.5px;font-family:inherit;color:var(--text-primary);outline:none;resize:none">${esc(f.note)}</textarea>
+      </div>
+
+      <div class="sheet-actions" style="margin-top:14px">
+        <button class="btn" onclick="vxCancelForm()">取消</button>
+        <button class="btn nav" onclick="vxSaveForm()">保存</button>
+      </div>
+    </div>`;
+}
+
+function vxSetType(k){
+  if (!VX_FORM || VX_FORM.type === k) return;
+  VX_FORM.type = k;
+  if (VX_FORM.isNew) {
+    VX_FORM.fields = vxPreFields(VX_FORM.kind, k);
+    VX_FORM.cat = vxCatFor(k);
+  }
+  const box = document.getElementById('vxFields');
+  if (box) box.innerHTML = VX_FORM.fields.map(vxFieldRow).join('');
+  document.querySelectorAll('[data-vt]').forEach(b => b.classList.toggle('on', b.dataset.vt === k));
+}
+
+function vxAddField(){
+  const box = document.getElementById('vxFields');
+  if (!box) return;
+  box.insertAdjacentHTML('beforeend', vxFieldRow({ k:'', v:'', mono:false }));
+  const rows = box.querySelectorAll('.vx-frow');
+  const last = rows[rows.length - 1];
+  if (last) last.querySelector('.fk').focus();
+}
+
+function vxFocusNewest(){ /* 预留：聚焦标题 */ }
+
+async function vxPick(input){
+  const files = [...(input.files || [])];
+  if (!files.length) return;
+  toast('处理中…');
+  const isR = VX_VIEW.kind === 'receipt';
+  const maxSide = isR ? 1600 : 2000;
+  const q = isR ? 0.78 : 0.85;
+  for (const f of files) {
+    try { VX_FORM.imgs.push(await vxCompress(f, maxSide, q)); } catch(e){ VX_FORM.imgs.push(f); }
+  }
+  input.value = '';
+  const box = document.getElementById('vxImgs');
+  if (box) {
+    box.classList.toggle('one', VX_FORM.imgs.length === 1);
+    box.innerHTML = VX_FORM.imgs.map((b, i) =>
+      `<div class="vx-img"><img src="${vxUrl(b)}" alt="">
+        <button class="del" onclick="vxDropImg(event,${i})">✕</button></div>`).join('');
+  }
+  toast(VX_FORM.imgs.length + ' 张');
+}
+
+function vxDropImg(e, i){
+  e.stopPropagation();
+  if (!VX_FORM) return;
+  if (!confirm('删掉这张图？')) return;
+  VX_FORM.imgs.splice(i, 1);
+  const box = document.getElementById('vxImgs');
+  if (box) {
+    box.classList.toggle('one', VX_FORM.imgs.length === 1);
+    box.innerHTML = VX_FORM.imgs.map((b, k) =>
+      `<div class="vx-img"><img src="${vxUrl(b)}" alt="">
+        <button class="del" onclick="vxDropImg(event,${k})">✕</button></div>`).join('');
+  }
+}
+
+async function vxSaveForm(){
+  const f = VX_FORM;
+  if (!f) return;
+  const titleEl = document.getElementById('vxTitle');
+  const fields = [];
+  document.querySelectorAll('#vxFields .vx-frow').forEach(row => {
+    const k = (row.querySelector('.fk').value || '').trim();
+    const v = (row.querySelector('.fv').value || '').trim();
+    const mono = /号|码/.test(k);
+    if (k || v) fields.push({ k: k || '备注', v, mono });
+  });
+  const note = (document.getElementById('vxNote').value || '').trim();
+  const m = VX_META[f.kind];
+  const t = m.types.find(x => x.k === f.type) || m.types[0];
+
+  const doc = {
+    id: f.id, kind: f.kind, type: f.type,
+    title: (titleEl.value || '').trim() || t.n,
+    fields, note,
+    imgs: f.imgs.slice(),
+    date: f.date, ts: f.isNew ? Date.now() : f.ts,
+    ledger: f.ledger || null
+  };
+
+  if (f.kind === 'receipt') {
+    const amtEl = document.getElementById('vxAmt');
+    const amount = parseFloat(amtEl.value);
+    doc.amount = amount > 0 ? amount : 0;
+    doc.cur = document.getElementById('vxCur').value;
+    doc.cat = document.getElementById('vxCat').value;
+    const book = document.getElementById('vxBook').checked;
+    if (doc.amount > 0 && !f.ledger && book) {
+      const b = getBudget();
+      const eid = 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      b.entries.push({
+        id: eid, amt: doc.amount, cur: doc.cur, cat: doc.cat,
+        date: new Date().toISOString().slice(0, 10),
+        note: doc.title, ts: Date.now(), ref: doc.id
+      });
+      saveBudget(b);
+      doc.ledger = eid;
+    }
+  }
+
+  try {
+    await vxPersist(doc);
+    await vxLoad();
+    VX_FORM = null; VX_VIEW.form = false; VX_VIEW.id = doc.id;
+    vxRender();
+    window.scrollTo({ top:0 });
+    toast('已存好');
+  } catch(e) {
+    console.error('[vault] save fail', e);
+    toast('存不下，可能空间满了');
+  }
+}
+
+async function vxDelete(id){
+  const d = VX_DOCS.find(x => x.id === id);
+  if (!d) return;
+  if (!confirm('删掉「' + (d.title || '这条') + '」？删了就找不回来。')) return;
+  if (d.ledger) {
+    if (confirm('预算里也记着这笔，一起删掉？\n（点取消 = 只删票据，账留着）')) {
+      const b = getBudget();
+      b.entries = b.entries.filter(e => e.id !== d.ledger);
+      saveBudget(b);
+    }
+  }
+  await vxErase(id);
+  await vxLoad();
+  VX_VIEW.id = null;
+  vxRender();
+  toast('已删除');
+}
+
+/* ── 大图查看 ── */
+const vxViewerEl = document.createElement('div');
+vxViewerEl.className = 'vx-viewer';
+vxViewerEl.innerHTML = `<button class="x" onclick="vxCloseImg()">✕</button>
+  <button class="nav l" onclick="vxNavImg(-1)">‹</button>
+  <img id="vxBig" alt="">
+  <button class="nav r" onclick="vxNavImg(1)">›</button>`;
+document.body.appendChild(vxViewerEl);
+
+function vxOpenImg(i){
+  const d = VX_DOCS.find(x => x.id === VX_VIEW.id);
+  if (!d || !d.imgs || !d.imgs[i]) return;
+  VX_SHOW = { docId: d.id, i };
+  document.getElementById('vxBig').src = vxUrl(d.imgs[i]);
+  vxViewerEl.classList.add('on');
+}
+function vxNavImg(dir){
+  const d = VX_DOCS.find(x => x.id === VX_SHOW.docId);
+  if (!d || !d.imgs) return;
+  const n = d.imgs.length;
+  VX_SHOW.i = (VX_SHOW.i + dir + n) % n;
+  document.getElementById('vxBig').src = vxUrl(d.imgs[VX_SHOW.i]);
+}
+function vxCloseImg(){ vxViewerEl.classList.remove('on'); }
+
+/* ── 备份导出 / 导入 ── */
+async function vxExport(){
+  if (vxPinOn() && !VX_KEY) { toast('先解锁'); return; }
+  if (!VX_DOCS.length) { toast('还没有东西'); return; }
+  toast('打包中…');
+  const docs = [];
+  for (const d of VX_DOCS) {
+    const imgs = [];
+    for (const b of (d.imgs || [])) imgs.push({ t: b.type || 'image/jpeg', d: await blob2b64(b) });
+    docs.push(Object.assign({}, d, { imgs }));
+  }
+  const payload = { app:'nz-trip-vault', v:1, ts: Date.now(), docs };
+  const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'nz-filebox-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('已导出 ' + docs.length + ' 份');
+}
+
+async function vxImport(input){
+  const f = (input.files || [])[0];
+  if (!f) return;
+  toast('导入中…');
+  try {
+    const o = JSON.parse(await f.text());
+    if (!o || !Array.isArray(o.docs)) throw new Error('格式不对');
+    let n = 0;
+    for (const d of o.docs) {
+      if (!d.id || !d.kind) continue;
+      d.imgs = (d.imgs || []).map(x => b642blob(x.d, x.t));
+      await vxPersist(d);
+      n++;
+    }
+    await vxLoad();
+    vxRender();
+    toast('导入了 ' + n + ' 份');
+  } catch(e) {
+    console.error('[vault] import', e);
+    toast('文件读不了，是不是选错了');
+  }
+  input.value = '';
+}
+
+/* ── PIN 开关 ── */
+function vxPinSheet(){
+  const on = vxPinOn();
+  if (on) {
+    if (!VX_KEY) { toast('先解锁'); return; }
+    if (!confirm('关闭 PIN 加密？\n\n关掉之后，这些证件在这台手机上就是明文了。')) return;
+    (async () => {
+      await vxRewrap(false);
+      vxKsSet(null); VX_KEY = null;
+      await vxLoad(); vxRender();
+      toast('已关闭加密');
+    })();
+    return;
+  }
+  openSheet('vxpin');
+}
+function vxPinInputs(){
+  let s = '';
+  for (let i = 0; i < 4; i++) s += `<input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1"
+    id="vxp${i}" data-i="${i}" oninput="vxPinIn2(this)" style="width:44px;height:54px;text-align:center;font-size:22px;
+    font-weight:700;font-family:inherit;border:1.5px solid var(--separator);border-radius:11px;background:var(--bg-grouped);
+    color:var(--text-primary);outline:none">`;
+  return s;
+}
+function vxPinIn2(el){
+  el.value = (el.value || '').replace(/\D/g, '').slice(0, 1);
+  const i = +el.dataset.i;
+  if (el.value && i < 3) { const nx = document.getElementById('vxp' + (i + 1)); if (nx) nx.focus(); }
+}
+async function vxDoSetPin(){
+  const pin = [0,1,2,3].map(i => (document.getElementById('vxp' + i).value || '')).join('');
+  if (pin.length !== 4) { toast('要输满 4 位'); return; }
+  toast('加密中…');
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await vxDerive(pin, salt);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const chk = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, VXE.encode('nz-vault-ok'));
+  VX_KEY = key;
+  vxKsSet({ on:1, salt: b64e(salt), iv: Array.from(iv), check: b64e(chk) });
+  await vxRewrap(true);
+  await vxLoad();
+  closeSheet();
+  vxRender();
+  toast('已开启加密，记住 PIN');
+}
+
+/* ── 初始化 ── */
+vxLoad().catch(e => console.warn('[vault] init', e));</script>
 </body>
 </html>
